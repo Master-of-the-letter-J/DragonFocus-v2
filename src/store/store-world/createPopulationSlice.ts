@@ -2,10 +2,8 @@ import { WORLD_CONSTANTS } from '@/constants/world.constants';
 import { progressPopulation } from '@/data/calculations/formula-game';
 import type { DragonFuryBand } from '@/types/world.types';
 import { decimal, deserializeDecimal, serializeDecimal, type DecimalSource } from '@/utils/decimal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { useResourceStore } from './createResourceSlice';
+import { scopeNestedSlice } from '../nested-slice';
+import type { WorldSlice, WorldStoreState } from './_useWorldStore';
 
 export interface HostileProgressionOptions {
 	ticks: number;
@@ -28,16 +26,18 @@ export interface PopulationStoreState {
 }
 
 /** Population combat is isolated here; the resource store remains canonical for humans. */
-export const usePopulationStore = create<PopulationStoreState>()(
-	persist(
-		(set, get) => ({
+export const createPopulationSlice: WorldSlice<'populationStore'> = (set, get) => {
+	const { setSlice, getSlice, getRoot } = scopeNestedSlice<WorldStoreState, 'populationStore', PopulationStoreState>('populationStore', set, get);
+
+	return {
+		populationStore: {
 			zombies: decimal(0),
 			cyborgs: decimal(0),
-			addZombies: amount => set(state => ({ zombies: decimal(0).max(state.zombies.plus(amount)) })),
-			addCyborgs: amount => set(state => ({ cyborgs: decimal(0).max(state.cyborgs.plus(amount)) })),
+			addZombies: amount => setSlice(state => ({ zombies: decimal(0).max(state.zombies.plus(amount)) })),
+			addCyborgs: amount => setSlice(state => ({ cyborgs: decimal(0).max(state.cyborgs.plus(amount)) })),
 			progressHostiles: ({ ticks, furyBand, populationMultiplier, zombieLevel = 1, cyborgLevel = 1, zombieIncinerationEffect = 0, cyborgIncinerationEffect = 0 }) => {
-				const state = get();
-				const humans = useResourceStore.getState().resources.population;
+				const state = getSlice();
+				const humans = getRoot().resourceStore.resources.population;
 				const zombieBaseScale = WORLD_CONSTANTS.population.zombieGrowth[furyBand];
 				const zombieDecline = (furyBand === 'calm' || furyBand === 'normal') && state.zombies.gt(humans) ? WORLD_CONSTANTS.population.zombieOverpopulationDecline : 0;
 				const extinctionDecline = humans.lte(0) ? WORLD_CONSTANTS.population.zombieExtinctionDecline : 0;
@@ -63,23 +63,18 @@ export const usePopulationStore = create<PopulationStoreState>()(
 				const zombieCasualties = decimal(0).max(nextZombies.minus(state.zombies));
 				// Trapezoidal integration keeps cyborg predation O(1) for long offline spans.
 				const cyborgCasualties = state.cyborgs.plus(nextCyborgs).div(2).times(Math.max(0, ticks));
-				set({ zombies: nextZombies, cyborgs: nextCyborgs });
+				setSlice({ zombies: nextZombies, cyborgs: nextCyborgs });
 				return zombieCasualties.plus(cyborgCasualties);
 			},
-			resetForTranscension: () => set({ zombies: decimal(0), cyborgs: decimal(0) }),
-			reset: () => set({ zombies: decimal(0), cyborgs: decimal(0) }),
-		}),
-		{
-			name: 'dragonfocus:population',
-			storage: createJSONStorage(() => AsyncStorage),
-			partialize: state => ({ zombies: serializeDecimal(state.zombies), cyborgs: serializeDecimal(state.cyborgs) }),
-			merge: (persisted, current) => {
-				const stored = persisted as { zombies?: string; cyborgs?: string };
-				return { ...current, zombies: deserializeDecimal(stored.zombies), cyborgs: deserializeDecimal(stored.cyborgs) };
-			},
+			resetForTranscension: () => setSlice({ zombies: decimal(0), cyborgs: decimal(0) }),
+			reset: () => setSlice({ zombies: decimal(0), cyborgs: decimal(0) }),
 		},
-	),
-);
+	};
+};
 
-/** Registers population, Zombie, and Cyborg state in the combined world store. */
-export const createPopulationSlice = () => ({ populationStore: usePopulationStore });
+export const serializePopulationState = (state: PopulationStoreState) => ({ zombies: serializeDecimal(state.zombies), cyborgs: serializeDecimal(state.cyborgs) });
+
+export const hydratePopulationState = (persisted: unknown, current: PopulationStoreState): PopulationStoreState => {
+	const stored = persisted as { zombies?: string; cyborgs?: string } | undefined;
+	return { ...current, zombies: deserializeDecimal(stored?.zombies), cyborgs: deserializeDecimal(stored?.cyborgs) };
+};

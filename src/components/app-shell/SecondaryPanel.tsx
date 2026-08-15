@@ -1,32 +1,29 @@
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { SPELL_SIZES } from '@/data/world-data/spells';
-import { useGoalStore } from '@/store/store-productivity/createGoalSlice';
-import { useSurveyStore } from '@/store/store-productivity/createSurveySlice';
-import { useSpellsStore } from '@/store/store-production-special/createSpellsSlice';
-import { usePopulationStore } from '@/store/store-world/createPopulationSlice';
-import { useResourceStore } from '@/store/store-world/createResourceSlice';
+import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
+import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { useProductionStore } from '@/store/store-production/_useProductionStore';
 import { formatDecimal } from '@/utils/decimal';
 import { milestoneForEnergy } from '@/data/world-data/milestones';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { Stat } from '@/components/ui/DragonUI';
+import { useShallow } from 'zustand/react/shallow';
 
 export type PanelMode = 'dragon' | 'goals' | 'resources' | 'prestige' | 'spells' | 'population';
 
 const { colors, space } = dragonTheme;
 
 export function SecondaryPanel({ mode, onPress }: { mode: PanelMode; onPress?: () => void }) {
-	const resources = useResourceStore(state => state.resources);
-	const deaths = useResourceStore(state => state.populationDead);
-	const dragon = useResourceStore(state => state.dragon);
-	const hostiles = usePopulationStore();
-	const goals = useGoalStore();
-	const surveys = useSurveyStore();
-	const spells = useSpellsStore(state => state.spellInventory);
-	const furyBand = useWorldStore(state => state.dragonStore.getState().getFuryBand());
-	const milestone = milestoneForEnergy(useResourceStore.getState().totalAllTime.energy);
-	const production = useProductionStore();
+	const { resources, deaths, dragon, hostiles, getFuryBand } = useWorldStore(
+		useShallow(state => ({ resources: state.resourceStore.resources, deaths: state.resourceStore.populationDead, dragon: state.resourceStore.dragon, hostiles: state.populationStore, getFuryBand: state.dragonStore.getFuryBand })),
+	);
+	const goals = useProductivityStore(state => state.goals);
+	const surveys = useProductivityStore(state => state.surveys);
+	const spells = useProductionSpecialStore(state => state.spells.spellInventory);
+	const furyBand = getFuryBand();
+	const milestone = milestoneForEnergy(useWorldStore.getState().resourceStore.totalAllTime.energy);
+	const productionLevels = useProductionStore(state => state.levels);
 
 	const content = (() => {
 		switch (mode) {
@@ -70,7 +67,7 @@ export function SecondaryPanel({ mode, onPress }: { mode: PanelMode; onPress?: (
 					['Plasma', formatDecimal(resources.plasma)],
 					['Anomalies', formatDecimal(resources.anomaly)],
 					['Shards', formatDecimal(resources.shards)],
-					['Owned', `${Object.values(production.levels).reduce((sum, level) => sum + level, 0)}`],
+					['Owned', `${Object.values(productionLevels).reduce((sum, level) => sum + level, 0)}`],
 				];
 		}
 	})();

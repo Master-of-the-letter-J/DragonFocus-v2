@@ -1,13 +1,11 @@
 import { WORLD_CONSTANTS } from '@/constants/world.constants';
 import type { AppActivity } from '@/types/world.types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create } from 'zustand';
-import type { ProductionSpecialSlice } from './_useProductionSpecialStore';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { scopeNestedSlice } from '../nested-slice';
+import type { ProductionSpecialSlice, ProductionSpecialStoreState } from './_useProductionSpecialStore';
 import { useProductionStore } from '../store-production/_useProductionStore';
 import { DRAGON_PACT_BENEFITS } from '@/data/premium-data/premium-catalog';
 import { usePremiumStore } from '../store-premium/_usePremiumStore';
-import { useWorldOptionsStore } from '../store-world/createWorldOptionsSlice';
+import { useWorldStore } from '../store-world/_useWorldStore';
 
 export interface CrimsonHeartStoreState {
 	charge: number;
@@ -21,7 +19,7 @@ export interface CrimsonHeartStoreState {
 const initialState = () => ({ charge: 0 });
 
 const heartScale = () => {
-	const mode = useWorldOptionsStore.getState().gameMode;
+	const mode = useWorldStore.getState().optionsStore.gameMode;
 	const difficulty = WORLD_CONSTANTS.gameModes.energyMultiplier[mode];
 	const premium = usePremiumStore.getState().isPremium ? DRAGON_PACT_BENEFITS.crimsonHeartMultiplier : 1;
 	return difficulty * premium;
@@ -50,25 +48,24 @@ const crimsonHeartTarget = (activity: AppActivity) => {
 };
 
 /** The Crimson Heart has one responsibility: move its charge toward the activity target. */
-export const useCrimsonHeartStore = create<CrimsonHeartStoreState>()(
-	persist(
-		(set, get) => ({
+export const createCrimsonHeartSlice: ProductionSpecialSlice<'crimsonHeart'> = (set, get) => {
+	const { setSlice, getSlice } = scopeNestedSlice<ProductionSpecialStoreState, 'crimsonHeart', CrimsonHeartStoreState>('crimsonHeart', set, get);
+
+	return {
+		crimsonHeart: {
 			...initialState(),
 			getMaximumCharge: maximumCharge,
 			getChargeRate: () => WORLD_CONSTANTS.crimsonHeartRatePerSecond * heartScale(),
-			setCharge: charge => set({ charge: Math.max(0, Math.min(maximumCharge(), charge)) }),
+			setCharge: charge => setSlice({ charge: Math.max(0, Math.min(maximumCharge(), charge)) }),
 			tick: (activity, seconds) => {
-				if (!Number.isFinite(seconds) || seconds <= 0) return get().charge;
-				const current = get().charge;
+				if (!Number.isFinite(seconds) || seconds <= 0) return getSlice().charge;
+				const current = getSlice().charge;
 				const target = crimsonHeartTarget(activity);
 				const charge = Math.max(0, Math.min(maximumCharge(), current + Math.sign(target - current) * Math.min(Math.abs(target - current), seconds * WORLD_CONSTANTS.crimsonHeartRatePerSecond * heartScale())));
-				set({ charge });
+				setSlice({ charge });
 				return charge;
 			},
-			reset: () => set(initialState()),
-		}),
-		{ name: 'dragonfocus:crimson-heart', storage: createJSONStorage(() => AsyncStorage) },
-	),
-);
-
-export const createCrimsonHeartSlice: ProductionSpecialSlice<'crimsonHeart'> = () => ({ crimsonHeart: useCrimsonHeartStore });
+			reset: () => setSlice(initialState()),
+		},
+	};
+};

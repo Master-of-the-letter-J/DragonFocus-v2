@@ -1,7 +1,7 @@
 import { progressPopulation } from '@/data/calculations/formula-game';
 import type { DragonStage } from '@/types/world.types';
 import { WORLD_CONSTANTS } from '@/constants/world.constants';
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import type { decimal } from '@/utils/decimal';
 import type { OnlineProgressSlice } from './online-progress.types';
 
@@ -16,7 +16,7 @@ export const furyBandFor = (fury: ReturnType<typeof decimal>, threshold: ReturnT
 
 export const createPopulationOnlineSlice: OnlineProgressSlice<'getFuryBand' | 'calculatePopulationProgress'> = () => ({
 	getFuryBand: () => {
-		const { fury, furyThreshold, maxFury } = useResourceStore.getState().dragon;
+		const { fury, furyThreshold, maxFury } = useWorldStore.getState().resourceStore.dragon;
 		return furyBandFor(fury, furyThreshold, maxFury);
 	},
 	calculatePopulationProgress: options => progressPopulation(options),

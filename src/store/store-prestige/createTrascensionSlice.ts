@@ -1,21 +1,17 @@
 import { WORLD_CONSTANTS } from '@/constants/world.constants';
 import { decimal } from '@/utils/decimal';
-import { useCrimsonHeartStore } from '../store-production-special/createCrimsonHeartSlice';
-import { useMonumentsStore } from '../store-production-special/createMonumentsSlice';
-import { useIncineratorStore } from '../store-production-special/createIncineratorSlice';
-import { useSpellsStore } from '../store-production-special/createSpellsSlice';
+import { useProductionSpecialStore } from '../store-production-special/_useProductionSpecialStore';
 import { useProductionStore } from '../store-production/_useProductionStore';
 import { PRODUCERS_BY_ID } from '@/data/production-data';
-import { getQuantumGrowthCost } from '../store-production/_useProductionStore';
-import { useGoalMultiplierStore } from '../store-production/createGoalMultiplierSlice';
+import { getQuantumGrowthCost } from '../store-production/createProducerSlice';
 import { useStatsStore } from '../useStatsStore';
-import { usePopulationStore } from '../store-world/createPopulationSlice';
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import { initialPrestigeState, type PrestigeSlice } from './prestige.types';
 
 export const createTrascensionSlice: PrestigeSlice<'commitTranscension' | 'recordTranscension'> = (set, get) => ({
 	commitTranscension: () => {
-		const resources = useResourceStore.getState();
+		const world = useWorldStore.getState();
+		const resources = world.resourceStore;
 		if (resources.totalThisTranscension.darkEnergy.lt(WORLD_CONSTANTS.transcensionDarkEnergyBase)) return false;
 
 		const quarkMultiplier = decimal(1).plus(resources.totalAllTime.quarks.times(0.01));
@@ -30,7 +26,7 @@ export const createTrascensionSlice: PrestigeSlice<'commitTranscension' | 'recor
 		resources.addResource('anomaly', anomalyGain);
 		resources.addResource('darkPlasma', darkPlasmaGain);
 		let quarkRefund = decimal(0);
-		for (const [producerId, progress] of Object.entries(useProductionStore.getState().producerProgress)) {
+		for (const [producerId, progress] of Object.entries(useProductionStore.getState().producerStore.progress)) {
 			const producer = PRODUCERS_BY_ID[producerId];
 			if (!producer) continue;
 			for (let growth = 0; growth < progress.quantumGrowths; growth += 1) {
@@ -41,14 +37,14 @@ export const createTrascensionSlice: PrestigeSlice<'commitTranscension' | 'recor
 		resources.setResource('quarks', resources.resources.quarks.plus(quarkRefund));
 		resources.resetForTranscension(useProductionStore.getState().isEffectActive('nyx-realm'));
 		useProductionStore.getState().resetForTranscension();
-		useGoalMultiplierStore.getState().resetForTranscension();
-		usePopulationStore.getState().resetForTranscension();
-		useSpellsStore.getState().clearActiveSpells();
-		useMonumentsStore.getState().resetForTranscension();
-		useIncineratorStore.getState().resetForTranscension();
+		world.populationStore.resetForTranscension();
+		const special = useProductionSpecialStore.getState();
+		special.spells.clearActiveSpells();
+		special.monuments.resetForTranscension();
+		special.incinerator.resetForTranscension();
 		get().setTitanomachyActive(false);
 		get().setTartarusActive(false);
-		useCrimsonHeartStore.getState().setCharge(0);
+		special.crimsonHeart.setCharge(0);
 		useStatsStore.getState().recordPrestige('transcension');
 		get().recordTranscension(plasmaPotential.toString());
 		return true;

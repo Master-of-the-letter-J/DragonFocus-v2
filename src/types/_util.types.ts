@@ -1,6 +1,7 @@
 import type { ProductionStoreState } from '@/store/store-production/_useProductionStore';
 import type { AmplifierStoreState } from '@/store/store-production/createAmplifierSlice';
 import type { GoalMultiplierStoreState } from '@/store/store-production/createGoalMultiplierSlice';
+import type { ForgingStoreState } from '@/store/store-production/createForgingSlice';
 import type { MonumentsStoreState } from '@/store/store-production-special/createMonumentsSlice';
 import type { ProducerStoreState } from '@/store/store-production/createProducerSlice';
 import type { RespecStoreState } from '@/store/store-production/createRespecSlice';
@@ -36,6 +37,7 @@ export type AppStoreStateUnion =
 	| ProducerStoreState
 	| AmplifierStoreState
 	| GoalMultiplierStoreState
+	| ForgingStoreState
 	| MonumentsStoreState
 	| RespecStoreState
 	| ProductivityStoreState

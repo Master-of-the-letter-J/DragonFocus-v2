@@ -1,16 +1,16 @@
 import { ActionButton } from '@/components/ui/DragonUI';
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
-import { useSpellsStore } from '@/store/store-production-special/createSpellsSlice';
+import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const { colors, radius, space } = dragonTheme;
 
 export function EffectsPanel() {
-	const active = useSpellsStore(state => state.activeSpells);
-	const inventory = useSpellsStore(state => state.spellInventory);
-	const activate = useSpellsStore(state => state.activateSpell);
-	const sell = useSpellsStore(state => state.sellSpell);
+	const { active, inventory, activate, sell } = useProductionSpecialStore(
+		useShallow(state => ({ active: state.spells.activeSpells, inventory: state.spells.spellInventory, activate: state.spells.activateSpell, sell: state.spells.sellSpell })),
+	);
 	const [visible, setVisible] = useState(false);
 	if (!active.length && !inventory.length) return null;
 	return (

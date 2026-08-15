@@ -1,18 +1,13 @@
 import type { Goal, GoalInput, GoalReward, HabitGoal, SpecialHabitGoal, SpecialHabitKind, TaskGoal } from '@/types/goals.types';
 import type { GameMode } from '@/types/world.types';
 import { decimal } from '@/utils/decimal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 import { useProductionStore } from '../store-production/_useProductionStore';
-import { useGoalMultiplierStore } from '../store-production/createGoalMultiplierSlice';
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import { useStatsStore } from '../useStatsStore';
 import { DRAGON_PACT_BENEFITS } from '@/data/premium-data/premium-catalog';
 import { usePremiumStore } from '../store-premium/_usePremiumStore';
-import { usePomodoroStore } from './createPomodoroSlice';
-import { useSurveyStore } from './createSurveySlice';
-import type { ProductivitySlice } from './_useProductivityStore';
+import { scopeNestedSlice } from '../nested-slice';
+import type { ProductivitySlice, ProductivityStoreState } from './_useProductivityStore';
 
 const dayEnd = (from = new Date()) => {
 	const date = new Date(from);
@@ -77,11 +72,11 @@ const createSpecialHabits = (): SpecialHabitGoal[] =>
 		};
 	});
 
-const isSpecialHabitReady = (goal: SpecialHabitGoal) => {
-	if (goal.specialKind === 'survey-check-in') return useSurveyStore.getState().checkInCompleted;
-	if (goal.specialKind === 'survey-check-out') return useSurveyStore.getState().checkOutCompleted;
+const isSpecialHabitReady = (goal: SpecialHabitGoal, productivity: ProductivityStoreState) => {
+	if (goal.specialKind === 'survey-check-in') return productivity.surveys.checkInCompleted;
+	if (goal.specialKind === 'survey-check-out') return productivity.surveys.checkOutCompleted;
 	const minimumSeconds = specialHabitDetails[goal.specialKind].minimumPomodoroSeconds ?? Number.POSITIVE_INFINITY;
-	return usePomodoroStore.getState().lastCompletedSessionSeconds >= minimumSeconds;
+	return productivity.pomodoro.lastCompletedSessionSeconds >= minimumSeconds;
 };
 const calculateGoalReward = (goal: Goal, mode: GameMode, artemisLevel = 0, aphroditeLevel = 0, goalMultiplier = decimal(1), rewardMultiplier = 1): GoalReward => {
 	if (goal.rewardBlocked) return { xp: '0', darkEnergy: '0', shards: '0', furyReduction: '0', quarks: '0' };
@@ -187,16 +182,18 @@ const initialState = () => ({
 
 const withoutGoal = (goals: Goal[], id: string) => goals.filter(goal => goal.id !== id);
 
-export const useGoalStore = create<GoalStoreState>()(
-	persist(
-		(set, get) => ({
+export const createGoalSlice: ProductivitySlice<'goals'> = (set, get) => {
+	const { setSlice, getSlice, getRoot } = scopeNestedSlice<ProductivityStoreState, 'goals', GoalStoreState>('goals', set, get);
+
+	return {
+		goals: {
 			...initialState(),
 			addGoal: input => {
 				if (input.type === 'special-habit') {
-					set({ lastWarning: 'Special habits are permanent and are created automatically.' });
+					setSlice({ lastWarning: 'Special habits are permanent and are created automatically.' });
 					return undefined;
 				}
-				const state = get();
+				const state = getSlice();
 				const activeOfType = input.type === 'habit' ? state.incompleteHabits.length : state.incompleteTasks.length;
 				const limit =
 					usePremiumStore.getState().isPremium ? DRAGON_PACT_BENEFITS.goalLimit
@@ -204,7 +201,7 @@ export const useGoalStore = create<GoalStoreState>()(
 					: state.maxTasks;
 
 				if (activeOfType >= limit) {
-					set({ lastWarning: `You can keep up to ${limit} incomplete ${input.type}s. Harvest or remove one first.` });
+					setSlice({ lastWarning: `You can keep up to ${limit} incomplete ${input.type}s. Harvest or remove one first.` });
 					return undefined;
 				}
 				const common = {
@@ -227,18 +224,18 @@ export const useGoalStore = create<GoalStoreState>()(
 					rewardBlocked: false,
 				};
 				if (!common.title) {
-					set({ lastWarning: 'A goal needs a title.' });
+					setSlice({ lastWarning: 'A goal needs a title.' });
 					return undefined;
 				}
 				const goal: Goal =
 					input.type === 'habit' ?
 						{ ...common, type: 'habit', repeat: input.repeat ?? 'daily', daysOfWeek: input.daysOfWeek ?? ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'], streak: 0, streakState: 'dormant', streakDueAt: dayEnd() }
 					:	{ ...common, type: 'task', estimatedMinutes: Math.max(1, input.estimatedMinutes ?? 15) };
-				set(current => (input.type === 'habit' ? { incompleteHabits: [...current.incompleteHabits, goal as HabitGoal], lastWarning: undefined } : { incompleteTasks: [...current.incompleteTasks, goal as TaskGoal], lastWarning: undefined }));
+				setSlice(current => (input.type === 'habit' ? { incompleteHabits: [...current.incompleteHabits, goal as HabitGoal], lastWarning: undefined } : { incompleteTasks: [...current.incompleteTasks, goal as TaskGoal], lastWarning: undefined }));
 				return goal;
 			},
 			removeGoal: id =>
-				set(state => ({
+				setSlice(state => ({
 					incompleteHabits: withoutGoal(state.incompleteHabits, id) as HabitGoal[],
 					incompleteTasks: withoutGoal(state.incompleteTasks, id) as TaskGoal[],
 					completed: withoutGoal(state.completed, id),
@@ -246,7 +243,7 @@ export const useGoalStore = create<GoalStoreState>()(
 					pendingHarvestIds: state.pendingHarvestIds.filter(goalId => goalId !== id),
 				})),
 			updateGoal: (id, changes) =>
-				set(state => {
+				setSlice(state => {
 					const { challenge: ignoredChallenge, ...safeChanges } = changes;
 					void ignoredChallenge;
 					const patch = (goal: Goal) => (goal.id === id ? ({ ...goal, ...safeChanges } as Goal) : goal);
@@ -259,7 +256,7 @@ export const useGoalStore = create<GoalStoreState>()(
 					};
 				}),
 			setGoalChallenge: (id, challenge) => {
-				const state = get();
+				const state = getSlice();
 				const target = [...state.incompleteHabits, ...state.incompleteTasks, ...state.specialHabits].find(goal => goal.id === id);
 				if (!target || target.challenge === challenge) return false;
 				const premium = usePremiumStore.getState().isPremium;
@@ -276,10 +273,10 @@ export const useGoalStore = create<GoalStoreState>()(
 				const currentCrimson = target.challenge === 'crimson' || target.challenge === 'both';
 				const currentQuantum = target.challenge === 'quantum' || target.challenge === 'both';
 				const shardCost = (wantsCrimson && !currentCrimson ? 3 : 0) + (wantsQuantum && !currentQuantum ? 6 : 0);
-				if (shardCost && !useResourceStore.getState().spendResource('shards', shardCost)) return false;
+				if (shardCost && !useWorldStore.getState().resourceStore.spendResource('shards', shardCost)) return false;
 
 				const update = (goal: Goal) => (goal.id === id ? ({ ...goal, challenge } as Goal) : goal);
-				set(current => ({
+				setSlice(current => ({
 					incompleteHabits: current.incompleteHabits.map(update) as HabitGoal[],
 					incompleteTasks: current.incompleteTasks.map(update) as TaskGoal[],
 					specialHabits: current.specialHabits.map(update) as SpecialHabitGoal[],
@@ -287,18 +284,18 @@ export const useGoalStore = create<GoalStoreState>()(
 				return true;
 			},
 			completeGoal: (id, now = new Date()) => {
-				const state = get();
+				const state = getSlice();
 				const goal = [...state.incompleteHabits, ...state.incompleteTasks, ...state.specialHabits.filter(candidate => candidate.status === 'incomplete')].find(candidate => candidate.id === id);
 				if (!goal) return false;
-				if (goal.type === 'special-habit' && !isSpecialHabitReady(goal)) {
-					set({ lastWarning: 'Complete the linked survey or Pomodoro session before marking this special habit complete.' });
+				if (goal.type === 'special-habit' && !isSpecialHabitReady(goal, getRoot())) {
+					setSlice({ lastWarning: 'Complete the linked survey or Pomodoro session before marking this special habit complete.' });
 					return false;
 				}
 				const time = now.getTime();
 
 				const recent = state.recentCompletionTimes.filter(timestamp => time - timestamp < 30_000);
 				if (recent.length >= 20) {
-					set({ recentCompletionTimes: recent, lastWarning: 'Spam detection is active. Please wait before completing more goals.' });
+					setSlice({ recentCompletionTimes: recent, lastWarning: 'Spam detection is active. Please wait before completing more goals.' });
 					return false;
 				}
 
@@ -337,7 +334,7 @@ export const useGoalStore = create<GoalStoreState>()(
 							frozenAt: undefined,
 						};
 
-				set(current => ({
+				setSlice(current => ({
 					incompleteHabits: withoutGoal(current.incompleteHabits, id) as HabitGoal[],
 					incompleteTasks: withoutGoal(current.incompleteTasks, id) as TaskGoal[],
 					specialHabits: goal.type === 'special-habit' ? current.specialHabits.map(habit => (habit.id === id ? (completed as SpecialHabitGoal) : habit)) : current.specialHabits,
@@ -352,12 +349,12 @@ export const useGoalStore = create<GoalStoreState>()(
 				return true;
 			},
 			restoreGoal: id => {
-				const specialHabit = get().specialHabits.find(candidate => candidate.id === id && candidate.status === 'completed');
-				const goal = specialHabit ?? get().completed.find(candidate => candidate.id === id);
+				const specialHabit = getSlice().specialHabits.find(candidate => candidate.id === id && candidate.status === 'completed');
+				const goal = specialHabit ?? getSlice().completed.find(candidate => candidate.id === id);
 				if (!goal) return false;
 
 				if (goal.type === 'special-habit') {
-					set(state => ({
+					setSlice(state => ({
 						specialHabits: state.specialHabits.map(habit => (habit.id === id ? { ...habit, status: 'incomplete', completedAt: undefined, streak: Math.max(0, habit.streak - 1), streakState: 'active', streakDueAt: dayEnd(), frozenAt: undefined, repairPending: false } : habit)),
 						pendingHarvestIds: state.pendingHarvestIds.filter(goalId => goalId !== id),
 					}));
@@ -365,7 +362,7 @@ export const useGoalStore = create<GoalStoreState>()(
 				}
 
 				if (goal.type === 'habit') {
-					set(state => ({
+					setSlice(state => ({
 						completed: withoutGoal(state.completed, id),
 						incompleteHabits: [...state.incompleteHabits, { ...goal, status: 'incomplete', completedAt: undefined, streakState: 'dormant', streakDueAt: dayEnd(), frozenAt: undefined }],
 						pendingHarvestIds: state.pendingHarvestIds.filter(goalId => goalId !== id),
@@ -373,7 +370,7 @@ export const useGoalStore = create<GoalStoreState>()(
 					return true;
 				}
 
-				set(state => ({
+				setSlice(state => ({
 					completed: withoutGoal(state.completed, id),
 					incompleteTasks: [...state.incompleteTasks, { ...goal, status: 'incomplete', completedAt: undefined, dueAt: goal.dueAt && Date.parse(goal.dueAt) < Date.now() ? nextMidnight() : goal.dueAt }],
 					pendingHarvestIds: state.pendingHarvestIds.filter(goalId => goalId !== id),
@@ -382,11 +379,11 @@ export const useGoalStore = create<GoalStoreState>()(
 			},
 			harvestGoal: (id, mode) => {
 				if (mode === 'lock-in') {
-					set({ lastWarning: 'Harvesting is unavailable while Lock-In is active.' });
+					setSlice({ lastWarning: 'Harvesting is unavailable while Lock-In is active.' });
 					return undefined;
 				}
-				const specialHabit = get().specialHabits.find(candidate => candidate.id === id && candidate.status === 'completed');
-				const goal = specialHabit ?? get().completed.find(candidate => candidate.id === id);
+				const specialHabit = getSlice().specialHabits.find(candidate => candidate.id === id && candidate.status === 'completed');
+				const goal = specialHabit ?? getSlice().completed.find(candidate => candidate.id === id);
 				if (!goal) return undefined;
 
 				const production = useProductionStore.getState();
@@ -394,50 +391,50 @@ export const useGoalStore = create<GoalStoreState>()(
 				const premium = usePremiumStore.getState().isPremium;
 				const rewardMultiplier = premium ? DRAGON_PACT_BENEFITS.harvestMultiplier : 1;
 				const baseReward = calculateGoalReward(goal, mode, levels.artemis ?? 0, levels.aphrodite ?? 0, decimal(1), rewardMultiplier);
-				const goalMultipliers = useGoalMultiplierStore.getState();
+				const goalMultipliers = useProductionStore.getState().goalMultiplierStore;
 				goalMultipliers.recordXp(goal.archetype, decimal(baseReward.xp).toNumber());
 				const goalMultiplier = decimal(goalMultipliers.getDarkEnergyMultiplier(goal.archetype));
 				const reward = calculateGoalReward(goal, mode, levels.artemis ?? 0, levels.aphrodite ?? 0, goalMultiplier, rewardMultiplier);
-				const state = get();
+				const state = getSlice();
 				const harvestDate = today();
 				const shardsHarvestedToday = state.shardHarvestDate === harvestDate ? state.shardsHarvestedToday : 0;
 				const shardCap = premium ? PREMIUM_SHARD_HARVEST_CAP : FREE_SHARD_HARVEST_CAP;
 				const isChallenge = goal.challenge !== 'none';
 				const grantedShards = isChallenge ? decimal(reward.shards) : decimal(reward.shards).min(Math.max(0, shardCap - shardsHarvestedToday));
 				const harvestedReward = { ...reward, shards: grantedShards.toString() };
-				const resources = useResourceStore.getState();
+				const resources = useWorldStore.getState().resourceStore;
 
 				// Rewards are applied before a special habit is readied for its next daily cycle.
 				resources.addResource('darkEnergy', harvestedReward.darkEnergy);
 				resources.addResource('shards', harvestedReward.shards);
 				resources.addResource('quarks', harvestedReward.quarks);
 				resources.addResource('fury', decimal(harvestedReward.furyReduction).neg());
-				set({
+				setSlice({
 					shardHarvestDate: harvestDate,
 					shardsHarvestedToday: isChallenge ? shardsHarvestedToday : shardsHarvestedToday + grantedShards.toNumber(),
 				});
 
 				useStatsStore.getState().recordGoal(goal);
-				useStatsStore.getState().recordResources(useResourceStore.getState().resources);
+				useStatsStore.getState().recordResources(useWorldStore.getState().resourceStore.resources);
 				useStatsStore.getState().refreshAchievements();
 				if (goal.type === 'special-habit') {
-					set(state => ({
+					setSlice(state => ({
 						specialHabits: state.specialHabits.map(habit => (habit.id === id ? { ...habit, status: 'incomplete', completedAt: undefined } : habit)),
 						pendingHarvestIds: state.pendingHarvestIds.filter(goalId => goalId !== id),
 					}));
 				} else {
 					const archived: Goal = { ...goal, status: 'archived', archivedAt: new Date().toISOString() };
-					set(state => ({ completed: withoutGoal(state.completed, id), archived: [...state.archived, archived], pendingHarvestIds: state.pendingHarvestIds.filter(goalId => goalId !== id) }));
+					setSlice(state => ({ completed: withoutGoal(state.completed, id), archived: [...state.archived, archived], pendingHarvestIds: state.pendingHarvestIds.filter(goalId => goalId !== id) }));
 				}
 				return harvestedReward;
 			},
-			harvestAllPending: mode => [...get().pendingHarvestIds].map(id => get().harvestGoal(id, mode)).filter((reward): reward is GoalReward => Boolean(reward)),
-			setAutoHarvest: enabled => set({ autoHarvestEnabled: enabled }),
-			getGoal: id => allGoals(get()).find(goal => goal.id === id),
-			getPomodoroGoals: () => [...get().incompleteHabits, ...get().incompleteTasks, ...get().specialHabits].filter(goal => goal.pomodoroPinned),
+			harvestAllPending: mode => [...getSlice().pendingHarvestIds].map(id => getSlice().harvestGoal(id, mode)).filter((reward): reward is GoalReward => Boolean(reward)),
+			setAutoHarvest: enabled => setSlice({ autoHarvestEnabled: enabled }),
+			getGoal: id => allGoals(getSlice()).find(goal => goal.id === id),
+			getPomodoroGoals: () => [...getSlice().incompleteHabits, ...getSlice().incompleteTasks, ...getSlice().specialHabits].filter(goal => goal.pomodoroPinned),
 			processMidnight: (now = new Date()) => {
 				const midnightDate = now.toISOString().slice(0, 10);
-				if (get().lastMidnightDate === midnightDate) return;
+				if (getSlice().lastMidnightDate === midnightDate) return;
 				const nowMs = now.getTime();
 				const hestiaLevel = useProductionStore.getState().levels.hestia ?? 0;
 				const crackAfterMs = (24 + hestiaLevel * 12) * 60 * 60 * 1_000;
@@ -452,7 +449,7 @@ export const useGoalStore = create<GoalStoreState>()(
 					};
 				};
 
-				set(state => ({
+				setSlice(state => ({
 					incompleteHabits: state.incompleteHabits.map(freezeExpiredHabit),
 					specialHabits: state.specialHabits.map(habit => {
 						if (habit.status === 'completed') {
@@ -466,28 +463,25 @@ export const useGoalStore = create<GoalStoreState>()(
 				}));
 			},
 			repairHabitStreak: id => {
-				const habit = get().incompleteHabits.find(goal => goal.id === id) ?? get().specialHabits.find(goal => goal.id === id);
+				const habit = getSlice().incompleteHabits.find(goal => goal.id === id) ?? getSlice().specialHabits.find(goal => goal.id === id);
 				const repairCost = Math.max(5, habit?.streak ?? 0);
-				if (!habit || habit.streakState !== 'cracked' || !useResourceStore.getState().spendResource('shards', repairCost)) return false;
-				set(state => ({
+				if (!habit || habit.streakState !== 'cracked' || !useWorldStore.getState().resourceStore.spendResource('shards', repairCost)) return false;
+				setSlice(state => ({
 					incompleteHabits: state.incompleteHabits.map(goal => (goal.id === id ? { ...goal, streakState: 'active', streak: Math.max(1, goal.streak), streakDueAt: dayEnd(), frozenAt: undefined } : goal)),
 					specialHabits: state.specialHabits.map(goal => (goal.id === id ? { ...goal, streakState: 'active', streak: Math.max(1, goal.streak), streakDueAt: dayEnd(), frozenAt: undefined, repairPending: false } : goal)),
 				}));
 				return true;
 			},
 			resetHabitStreak: id => {
-				const habit = get().incompleteHabits.find(goal => goal.id === id) ?? get().specialHabits.find(goal => goal.id === id);
+				const habit = getSlice().incompleteHabits.find(goal => goal.id === id) ?? getSlice().specialHabits.find(goal => goal.id === id);
 				if (!habit || habit.streakState !== 'cracked') return false;
-				set(state => ({
+				setSlice(state => ({
 					incompleteHabits: state.incompleteHabits.map(goal => (goal.id === id ? { ...goal, streak: 1, streakState: 'active', streakDueAt: dayEnd(), frozenAt: undefined } : goal)),
 					specialHabits: state.specialHabits.map(goal => (goal.id === id ? { ...goal, streak: 1, streakState: 'active', streakDueAt: dayEnd(), frozenAt: undefined, repairPending: false } : goal)),
 				}));
 				return true;
 			},
-			reset: () => set(initialState()),
-		}),
-		{ name: 'dragonfocus:goals', storage: createJSONStorage(() => AsyncStorage) },
-	),
-);
-
-export const createGoalSlice: ProductivitySlice<'goals'> = () => ({ goals: useGoalStore });
+			reset: () => setSlice(initialState()),
+		},
+	};
+};

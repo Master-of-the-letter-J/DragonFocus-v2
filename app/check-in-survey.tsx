@@ -1,4 +1,5 @@
-import SurveyScreen from '@/screens/SurveyScreen';
-export default function CheckInSurvey() {
-	return <SurveyScreen kind="check-in" />;
+import { SurveyPage } from '@/components/surveys/SurveyPage';
+
+export default function CheckInSurveyRoute() {
+	return <SurveyPage kind="check-in" />;
 }

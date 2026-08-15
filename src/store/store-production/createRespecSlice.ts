@@ -2,11 +2,11 @@ import { calculateGeometricCost } from '@/data/calculations/formula-production';
 import { PRODUCERS_BY_ID, PRODUCTION_ITEMS } from '@/data/production-data';
 import type { ProductionEffectId, ProductionItem } from '@/types/production.types';
 import type { SpendableResourceId } from '@/types/resources.types';
-import { create, type StateCreator } from 'zustand';
-import { useResourceStore } from '../store-world/createResourceSlice';
-import { getEvolutionSerumCost, getQuantumGrowthCost, useProductionStore } from './_useProductionStore';
-import { useGoalMultiplierStore } from './createGoalMultiplierSlice';
-import { useMonumentsStore } from '../store-production-special/createMonumentsSlice';
+import { scopeNestedSlice } from '../nested-slice';
+import { useProductionSpecialStore } from '../store-production-special/_useProductionSpecialStore';
+import { useWorldStore } from '../store-world/_useWorldStore';
+import type { ProductionSlice, ProductionStoreState } from './_useProductionStore';
+import { getEvolutionSerumCost, getQuantumGrowthCost } from './createProducerSlice';
 
 export type RespecPowerId = 'dark-energy' | 'producers' | 'amplifiers' | 'goal-multipliers' | 'boost-upgrades' | 'primordial-monuments' | 'pantheons' | 'chaos-growths' | 'cyclopes-forge';
 
@@ -29,18 +29,16 @@ const fullRefund = (item: ProductionItem, level: number, paidLevel: number, reso
 		if (!resources.includes(cost.resource)) continue;
 		const refundedLevels = item.oneTimeUntilTranscension?.includes(cost.resource) ? Math.max(level, paidLevel) : level;
 		const refund = calculateGeometricCost(cost, 0, refundedLevels);
-		useResourceStore.getState().addResource(cost.resource, refund);
+		useWorldStore.getState().resourceStore.addResource(cost.resource, refund);
 	}
 };
 
-const itemsMatching = (predicate: (item: ProductionItem) => boolean) => {
-	const production = useProductionStore.getState();
+const itemsMatching = (predicate: (item: ProductionItem) => boolean, production: ProductionStoreState) => {
 	return PRODUCTION_ITEMS.filter(item => predicate(item) && ((production.levels[item.id] ?? 0) > 0 || (production.paidCostLevels[item.id] ?? 0) > 0));
 };
 
-const refundAndClear = (items: readonly ProductionItem[], resources: readonly SpendableResourceId[]) => {
+const refundAndClear = (items: readonly ProductionItem[], resources: readonly SpendableResourceId[], production: ProductionStoreState) => {
 	if (!items.length) return false;
-	const production = useProductionStore.getState();
 	for (const item of items) fullRefund(item, production.levels[item.id] ?? 0, production.paidCostLevels[item.id] ?? 0, resources);
 	production.clearItems(items.map(item => item.id));
 	return true;
@@ -57,70 +55,78 @@ export interface RespecStoreState {
 
 const initialState = () => ({ lastRespecAt: undefined as string | undefined, lastRespecPower: undefined as RespecPowerId | undefined });
 
-const createRespecStoreSlice: StateCreator<RespecStoreState> = (set, get) => ({
-	...initialState(),
-	canRespec: power => {
-		const production = useProductionStore.getState();
-		return production.isEffectActive('titan-pantheon') && production.isEffectActive(RESPEC_EFFECTS[power]) && useResourceStore.getState().resources.quarks.gte(QUARK_RESPEC_COST);
+export const createRespecSlice: ProductionSlice<'respecStore'> = (set, get) => {
+	const { setSlice, getSlice, getRoot } = scopeNestedSlice<ProductionStoreState, 'respecStore', RespecStoreState>('respecStore', set, get);
+
+	return {
+		respecStore: {
+			...initialState(),
+			canRespec: power => {
+		const production = getRoot();
+		return production.isEffectActive('titan-pantheon') && production.isEffectActive(RESPEC_EFFECTS[power]) && useWorldStore.getState().resourceStore.resources.quarks.gte(QUARK_RESPEC_COST);
 	},
 	performRespec: power => {
-		if (!get().canRespec(power)) return false;
+		if (!getSlice().canRespec(power)) return false;
 
-		const production = useProductionStore.getState();
+		const production = getRoot();
 		let completed = false;
 		switch (power) {
 			case 'dark-energy':
 				completed = refundAndClear(
-					itemsMatching(item => item.kind === 'producer' || (item.kind === 'energy-upgrade' && item.costs.some(cost => cost.resource === 'darkEnergy'))),
+					itemsMatching(item => item.kind === 'producer' || (item.kind === 'energy-upgrade' && item.costs.some(cost => cost.resource === 'darkEnergy')), production),
 					['darkEnergy', 'plasma'],
+					production,
 				);
 				break;
 			case 'producers':
 				completed = refundAndClear(
-					itemsMatching(item => item.kind === 'producer' || item.kind === 'producer-upgrade'),
+					itemsMatching(item => item.kind === 'producer' || item.kind === 'producer-upgrade', production),
 					['energy', 'darkEnergy'],
+					production,
 				);
 				break;
 			case 'amplifiers':
 				completed = refundAndClear(
-					itemsMatching(item => item.kind === 'amplifier'),
+					itemsMatching(item => item.kind === 'amplifier', production),
 					['energy', 'plasma'],
+					production,
 				);
-				if (completed) production.clearGilds('amplifier');
+				if (completed) production.forgingStore.clearGilds('amplifier');
 				break;
 			case 'goal-multipliers': {
-				const upgrades = useGoalMultiplierStore.getState();
+				const upgrades = production.goalMultiplierStore;
 				const upgradeRefund = upgrades.respecUpgrades();
-				const legacyItems = itemsMatching(item => item.kind === 'goal-multiplier');
-				const refundedLegacyItems = refundAndClear(legacyItems, ['darkEnergy', 'plasma']);
+				const legacyItems = itemsMatching(item => item.kind === 'goal-multiplier', production);
+				const refundedLegacyItems = refundAndClear(legacyItems, ['darkEnergy', 'plasma'], production);
 				completed = !upgradeRefund.eq(0) || refundedLegacyItems;
-				if (!upgradeRefund.eq(0)) useResourceStore.getState().addResource('darkEnergy', upgradeRefund);
-				production.clearGilds('goal');
+				if (!upgradeRefund.eq(0)) useWorldStore.getState().resourceStore.addResource('darkEnergy', upgradeRefund);
 				break;
 			}
 			case 'boost-upgrades':
 				completed = refundAndClear(
-					itemsMatching(item => item.kind === 'pomodoro-boost'),
+					itemsMatching(item => item.kind === 'pomodoro-boost', production),
 					['darkEnergy', 'plasma'],
+					production,
 				);
 				break;
 			case 'primordial-monuments':
 				completed = FUELABLE_MONUMENTS_HAVE_PROGRESS();
-				if (completed) useMonumentsStore.getState().respecMonumentUpgrades();
+				if (completed) useProductionSpecialStore.getState().monuments.respecMonumentUpgrades();
 				break;
 			case 'pantheons':
 				completed = refundAndClear(
-					itemsMatching(item => item.kind === 'deity' || item.kind === 'titan'),
+					itemsMatching(item => item.kind === 'deity' || item.kind === 'titan', production),
 					['anomaly'],
+					production,
 				);
 				if (completed) {
-					production.clearForgedTargets('deity');
-					production.clearForgedTargets('titan');
+					production.forgingStore.clearForgedTargets('deity');
+					production.forgingStore.clearForgedTargets('titan');
 				}
 				break;
 			case 'chaos-growths': {
-				const progress = production.producerProgress;
-				const resources = useResourceStore.getState();
+				const progress = production.producerStore.progress;
+				const resources = useWorldStore.getState().resourceStore;
 				completed = Object.values(progress).some(entry => entry.quantumGrowths > 0 || entry.evolutions > 0);
 				if (completed) {
 					// Replay every growth and serum cost before charging the respec fee.
@@ -139,36 +145,34 @@ const createRespecStoreSlice: StateCreator<RespecStoreState> = (set, get) => ({
 							resources.addResource('quarks', serum.quarks);
 						}
 					}
-					production.resetGrowthsAndEvolutions();
+					production.producerStore.resetGrowthsAndEvolutions();
 				}
 				break;
 			}
 			case 'cyclopes-forge':
 				completed = refundAndClear(
-					itemsMatching(item => item.id === 'olympian-cyclopes-forge' || item.id === 'titan-cyclopes-forge'),
+					itemsMatching(item => item.id === 'olympian-cyclopes-forge' || item.id === 'titan-cyclopes-forge', production),
 					['anomaly'],
+					production,
 				);
 				if (completed) {
-					production.clearForgedTargets('deity');
-					production.clearForgedTargets('titan');
+					production.forgingStore.clearForgedTargets('deity');
+					production.forgingStore.clearForgedTargets('titan');
 				}
 				break;
 		}
 
 		if (!completed) return false;
-		useResourceStore.getState().spendResource('quarks', QUARK_RESPEC_COST);
-		set({ lastRespecAt: new Date().toISOString(), lastRespecPower: power });
+		useWorldStore.getState().resourceStore.spendResource('quarks', QUARK_RESPEC_COST);
+		setSlice({ lastRespecAt: new Date().toISOString(), lastRespecPower: power });
 		return true;
 	},
-	reset: () => set(initialState()),
-});
-
-export const useRespecStore = create<RespecStoreState>()(createRespecStoreSlice);
-
-/** Registers respec powers in the combined production store. */
-export const createRespecSlice = () => ({ respecStore: useRespecStore });
+	reset: () => setSlice(initialState()),
+		},
+	};
+};
 
 const FUELABLE_MONUMENTS_HAVE_PROGRESS = () => {
-	const monuments = useMonumentsStore.getState();
+	const monuments = useProductionSpecialStore.getState().monuments;
 	return Object.values(monuments.fuelSeconds).some(seconds => seconds > 0) || Object.values(monuments.upgradeLevels).some(level => level > 1);
 };

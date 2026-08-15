@@ -8,7 +8,7 @@ import { initialOfflineProgressState, type OfflineProgressStoreState } from './o
 
 export type { AppBlockingMode, OfflineProgress, OfflineProgressStoreState, OfflineProgressSegment } from './offline-progress.types';
 
-export const useOffline = create<OfflineProgressStoreState>()(
+export const useOfflineProgressStore = create<OfflineProgressStoreState>()(
 	persist(
 		(...store) => ({
 			...initialOfflineProgressState(),

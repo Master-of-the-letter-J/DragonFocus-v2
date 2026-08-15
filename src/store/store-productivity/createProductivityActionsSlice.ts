@@ -1,12 +1,9 @@
 import type { ProductivitySlice } from './_useProductivityStore';
-import { useGoalStore } from './createGoalSlice';
-import { usePomodoroStore } from './createPomodoroSlice';
-import { useSurveyStore } from './createSurveySlice';
 
-export const createProductivityActionsSlice: ProductivitySlice<'resetProductivity'> = () => ({
+export const createProductivityActionsSlice: ProductivitySlice<'resetProductivity'> = (_set, get) => ({
 	resetProductivity: () => {
-		useGoalStore.getState().reset();
-		useSurveyStore.getState().reset();
-		usePomodoroStore.getState().reset();
+		get().goals.reset();
+		get().surveys.reset();
+		get().pomodoro.reset();
 	},
 });

@@ -2,13 +2,10 @@ import { WORLD_CONSTANTS } from '@/constants/world.constants';
 import { DRAGON_QUOTES } from '@/data/statistics-data/dragon-quotes';
 import type { DragonFuryBand } from '@/types/world.types';
 import { decimal } from '@/utils/decimal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create, type StateCreator } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 import { useOnlineProgressStore } from '../store-online-progress/_useOnlineProgressStore';
 import { useProductionStore } from '../store-production/_useProductionStore';
-import { useResourceStore } from './createResourceSlice';
-import { useWorldOptionsStore } from './createWorldOptionsSlice';
+import { scopeNestedSlice } from '../nested-slice';
+import type { WorldSlice, WorldStoreState } from './_useWorldStore';
 
 export interface DragonStoreState {
 	dragonSpawned: boolean;
@@ -43,42 +40,46 @@ const initialState = () => ({
 });
 
 /** Canonical owner for dragon lifecycle, Fury controls, shields, and age state. */
-const createDragonStoreSlice: StateCreator<DragonStoreState> = (set, get) => ({
-	...initialState(),
-	spawnDragon: name => {
-		if (get().dragonSpawned) return false;
+export const createDragonSlice: WorldSlice<'dragonStore'> = (set, get) => {
+	const { setSlice, getSlice, getRoot } = scopeNestedSlice<WorldStoreState, 'dragonStore', DragonStoreState>('dragonStore', set, get);
+
+	return {
+		dragonStore: {
+			...initialState(),
+			spawnDragon: name => {
+		if (getSlice().dragonSpawned) return false;
 		const dragonName = name?.trim();
-		useResourceStore.getState().setDragon({
+		getRoot().resourceStore.setDragon({
 			name: dragonName || WORLD_CONSTANTS.dragon.defaultName,
 			isAlive: true,
 			fury: decimal(0),
 			deathReason: undefined,
 			lastDeathAt: undefined,
 		});
-		set({ dragonSpawned: true, nexusIntroStep: 3 });
+		setSlice({ dragonSpawned: true, nexusIntroStep: 3 });
 		return true;
 	},
-	dismissNexusIntro: () => set(state => ({ nexusIntroStep: Math.min(3, state.nexusIntroStep + 1) })),
+	dismissNexusIntro: () => setSlice(state => ({ nexusIntroStep: Math.min(3, state.nexusIntroStep + 1) })),
 	renameDragon: name => {
 		const trimmed = name.trim();
-		if (!trimmed || trimmed.length > 32 || useResourceStore.getState().dragon.ageDays < 365) return false;
-		useResourceStore.getState().setDragon({ name: trimmed });
+		if (!trimmed || trimmed.length > 32 || getRoot().resourceStore.dragon.ageDays < 365) return false;
+		getRoot().resourceStore.setDragon({ name: trimmed });
 		return true;
 	},
 	getFuryBand: () => useOnlineProgressStore.getState().getFuryBand(),
 	buyAngerShields: (quantity = 1) => {
 		const amount = Math.max(1, Math.floor(quantity));
-		const resources = useResourceStore.getState();
+		const resources = getRoot().resourceStore;
 		const maxShields = Math.floor(resources.dragon.furyThreshold.toNumber());
-		const available = Math.max(0, Math.min(amount, maxShields - get().angerShields));
+		const available = Math.max(0, Math.min(amount, maxShields - getSlice().angerShields));
 		const costPerShield = 1 + Math.floor(resources.dragon.ageDays / 30);
 		if (!available || !resources.spendResource('shards', decimal(costPerShield).times(available))) return false;
-		set(state => ({ angerShields: state.angerShields + available }));
+		setSlice(state => ({ angerShields: state.angerShields + available }));
 		return true;
 	},
 	siphonFury: (amount = 1) => {
-		const resources = useResourceStore.getState();
-		const mode = useWorldOptionsStore.getState().gameMode;
+		const resources = getRoot().resourceStore;
+		const mode = getRoot().optionsStore.gameMode;
 		if (!useProductionStore.getState().isEffectActive('typhon-siphon') || mode === 'hard' || mode === 'hard-plus') return false;
 		const reduction = decimal(Math.max(1, Math.floor(amount))).min(resources.resources.fury);
 		const cost = reduction.times(1 + Math.floor(resources.dragon.ageDays / 30));
@@ -87,17 +88,17 @@ const createDragonStoreSlice: StateCreator<DragonStoreState> = (set, get) => ({
 		return true;
 	},
 	reviveDragon: () => {
-		const resources = useResourceStore.getState();
+		const resources = getRoot().resourceStore;
 		if (resources.dragon.isAlive) return false;
 		resources.setDragon({ isAlive: true, fury: decimal(0), deathReason: undefined });
-		get().startReviveGrace(WORLD_CONSTANTS.dragon.reviveGraceSeconds);
-		set({ lastDragonQuote: 'The Nexus answers. The dragon rises again.' });
+		getSlice().startReviveGrace(WORLD_CONSTANTS.dragon.reviveGraceSeconds);
+		setSlice({ lastDragonQuote: 'The Nexus answers. The dragon rises again.' });
 		return true;
 	},
 	clickDragon: () => {
-		const resources = useResourceStore.getState();
+		const resources = getRoot().resourceStore;
 		const levels = useProductionStore.getState().levels;
-		if (!get().dragonSpawned || !resources.dragon.isAlive) return undefined;
+		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return undefined;
 		const base = decimal(1 + (levels['bigger-clicks'] ?? 0)).times(decimal(2).pow(levels['double-clicks'] ?? 0));
 		resources.addResource('energy', base);
 		resources.addPopulation(decimal(10).pow(levels['gaias-gift'] ?? 0));
@@ -105,12 +106,12 @@ const createDragonStoreSlice: StateCreator<DragonStoreState> = (set, get) => ({
 		const bonusTicks = 0.2 * ((levels['true-dragon-clicks'] ?? 0) + (levels['un-worldly-clicks'] ?? 0));
 		if (bonusTicks > 0) useOnlineProgressStore.getState().tickWorld(bonusTicks);
 		const quote = DRAGON_QUOTES[Math.floor(Math.random() * DRAGON_QUOTES.length)];
-		if (useWorldOptionsStore.getState().nexusSettings.showDragonQuotes) set({ lastDragonQuote: quote });
+		if (getRoot().optionsStore.nexusSettings.showDragonQuotes) setSlice({ lastDragonQuote: quote });
 		return quote;
 	},
 	clickWorld: () => {
-		const resources = useResourceStore.getState();
-		if (!get().dragonSpawned || !resources.dragon.isAlive) return;
+		const resources = getRoot().resourceStore;
+		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return;
 		resources.addResource('energy', 1);
 		const level = useProductionStore.getState().levels['un-worldly-clicks'] ?? 0;
 		const growthTicks = Math.min(1, level * 0.2);
@@ -121,23 +122,15 @@ const createDragonStoreSlice: StateCreator<DragonStoreState> = (set, get) => ({
 		}
 		resources.addResource('fury', 0.01);
 	},
-	setAngerShields: amount => set({ angerShields: Math.max(0, amount) }),
+	setAngerShields: amount => setSlice({ angerShields: Math.max(0, amount) }),
 	recordDragonAge: ageDays => {
-		if (Number.isFinite(ageDays)) set(state => ({ bestDragonAge: Math.max(state.bestDragonAge, ageDays) }));
+		if (Number.isFinite(ageDays)) setSlice(state => ({ bestDragonAge: Math.max(state.bestDragonAge, ageDays) }));
 	},
 	startReviveGrace: seconds => {
-		if (Number.isFinite(seconds) && seconds > 0) set({ reviveGraceUntil: new Date(Date.now() + seconds * 1_000).toISOString() });
+		if (Number.isFinite(seconds) && seconds > 0) setSlice({ reviveGraceUntil: new Date(Date.now() + seconds * 1_000).toISOString() });
 	},
-	clearReviveGrace: () => set({ reviveGraceUntil: undefined }),
-	reset: () => set(initialState()),
-});
-
-export const useDragonStore = create<DragonStoreState>()(
-	persist((...store) => ({ ...createDragonStoreSlice(...store) }), {
-		name: 'dragonfocus:dragon',
-		storage: createJSONStorage(() => AsyncStorage),
-	}),
-);
-
-/** Registers the canonical dragon hook in the combined world store. */
-export const createDragonSlice = () => ({ dragonStore: useDragonStore });
+	clearReviveGrace: () => setSlice({ reviveGraceUntil: undefined }),
+	reset: () => setSlice(initialState()),
+		},
+	};
+};

@@ -357,7 +357,7 @@ export const GOAL_MULTIPLIERS: UpgradeDefinition[] = ['personal', 'scholar', 'at
 	id: `${archetype}-goal-multiplier`,
 	name: `${archetype.replaceAll('-', ' ')} Goal Multiplier`,
 	kind: 'goal-multiplier',
-	description: 'Legacy purchase entry. Goal Multiplier XP and levels are managed by useGoalMultiplierStore.',
+	description: 'Legacy purchase entry. Goal Multiplier XP and levels are managed by the production store’s goal multiplier slice.',
 	costs: [{ resource: 'darkEnergy', base: '10', growthFactor: 1 }],
 	maxLevel: 1,
 	unlocks: [{ metric: 'milestone', amount: 3 }],

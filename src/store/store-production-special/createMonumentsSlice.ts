@@ -2,11 +2,9 @@ import { ARMAGEDDON_MONUMENTS, PRODUCTION_BY_ID, TRANSCENSION_MONUMENTS } from '
 import { calculateExponentialGrowth } from '@/data/calculations/formula-production';
 import type { ProductionItemBase, ResourceGrowth } from '@/types/production.types';
 import { decimal } from '@/utils/decimal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create } from 'zustand';
-import type { ProductionSpecialSlice } from './_useProductionSpecialStore';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { scopeNestedSlice } from '../nested-slice';
+import type { ProductionSpecialSlice, ProductionSpecialStoreState } from './_useProductionSpecialStore';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import { useProductionStore } from '../store-production/_useProductionStore';
 
 export const FUELABLE_MONUMENT_IDS = ['eros', 'ananke', 'aether', 'chronos'] as const;
@@ -66,9 +64,11 @@ const fuelCost = (level: number, minutes: number) =>
 		.pow(Math.max(1, level))
 		.times(minutes * SECONDS_PER_MINUTE);
 
-export const useMonumentsStore = create<MonumentsStoreState>()(
-	persist(
-		(set, get) => ({
+export const createMonumentsSlice: ProductionSpecialSlice<'monuments'> = (set, get) => {
+	const { setSlice, getSlice } = scopeNestedSlice<ProductionSpecialStoreState, 'monuments', MonumentsStoreState>('monuments', set, get);
+
+	return {
+		monuments: {
 			armageddonMonuments: ARMAGEDDON_MONUMENTS,
 			transcensionMonuments: TRANSCENSION_MONUMENTS,
 			fuelSeconds: initialFuelSeconds(),
@@ -77,12 +77,12 @@ export const useMonumentsStore = create<MonumentsStoreState>()(
 				if (!isMonument(PRODUCTION_BY_ID[itemId])) return false;
 				return useProductionStore.getState().purchase(itemId);
 			},
-			getFuelCapacitySeconds: monument => BASE_CAPACITY_MINUTES * SECONDS_PER_MINUTE * get().upgradeLevels[monument],
-			getFuelCost: (monument, minutes = DEFAULT_FUEL_MINUTES) => fuelCost(get().upgradeLevels[monument], Math.max(1, Math.floor(minutes))),
+			getFuelCapacitySeconds: monument => BASE_CAPACITY_MINUTES * SECONDS_PER_MINUTE * getSlice().upgradeLevels[monument],
+			getFuelCost: (monument, minutes = DEFAULT_FUEL_MINUTES) => fuelCost(getSlice().upgradeLevels[monument], Math.max(1, Math.floor(minutes))),
 			fuelMonument: (monument, minutes = DEFAULT_FUEL_MINUTES) => {
 				if (!isUnlocked(monument)) return false;
 
-				const state = get();
+				const state = getSlice();
 				const capacity = state.getFuelCapacitySeconds(monument);
 				const remaining = capacity - state.fuelSeconds[monument];
 				if (remaining <= SECONDS_PER_MINUTE) return false;
@@ -92,12 +92,12 @@ export const useMonumentsStore = create<MonumentsStoreState>()(
 
 				const config = fuelableMonuments[monument];
 				const plasmaCost = fuelCost(state.upgradeLevels[monument], fundedMinutes);
-				const resources = useResourceStore.getState();
+				const resources = useWorldStore.getState().resourceStore;
 				if (resources.resources[config.fuelToken].lt(1) || resources.resources.plasma.lt(plasmaCost)) return false;
 
 				resources.spendResource(config.fuelToken, 1);
 				resources.spendResource('plasma', plasmaCost);
-				set(current => ({
+				setSlice(current => ({
 					fuelSeconds: {
 						...current.fuelSeconds,
 						[monument]: Math.min(capacity, current.fuelSeconds[monument] + fundedMinutes * SECONDS_PER_MINUTE),
@@ -107,37 +107,34 @@ export const useMonumentsStore = create<MonumentsStoreState>()(
 			},
 			upgradeMonument: monument => {
 				if (!isUnlocked(monument)) return false;
-				const level = get().upgradeLevels[monument];
+				const level = getSlice().upgradeLevels[monument];
 				const cost = upgradeCost();
-				if (!useResourceStore.getState().spendResource(cost.resource, calculateExponentialGrowth(cost, Math.max(0, level - 1)))) return false;
-				set(state => ({ upgradeLevels: { ...state.upgradeLevels, [monument]: state.upgradeLevels[monument] + 1 } }));
+				if (!useWorldStore.getState().resourceStore.spendResource(cost.resource, calculateExponentialGrowth(cost, Math.max(0, level - 1)))) return false;
+				setSlice(state => ({ upgradeLevels: { ...state.upgradeLevels, [monument]: state.upgradeLevels[monument] + 1 } }));
 				return true;
 			},
 			tickMonuments: seconds => {
 				if (!Number.isFinite(seconds) || seconds <= 0) return;
-				set(state => ({
+				setSlice(state => ({
 					fuelSeconds: Object.fromEntries(FUELABLE_MONUMENT_IDS.map(monument => [monument, Math.max(0, state.fuelSeconds[monument] - seconds)])) as Record<FuelableMonumentId, number>,
 				}));
 			},
-			isMonumentActive: monument => get().fuelSeconds[monument] > 0,
-			resetFuelBars: () => set({ fuelSeconds: initialFuelSeconds() }),
+			isMonumentActive: monument => getSlice().fuelSeconds[monument] > 0,
+			resetFuelBars: () => setSlice({ fuelSeconds: initialFuelSeconds() }),
 			respecMonumentUpgrades: () => {
-				const state = get();
-				const resources = useResourceStore.getState();
+				const state = getSlice();
+				const resources = useWorldStore.getState().resourceStore;
 				for (const monument of FUELABLE_MONUMENT_IDS) {
 					for (let level = 1; level < state.upgradeLevels[monument]; level += 1) {
 						const cost = upgradeCost();
 						resources.addResource(cost.resource, calculateExponentialGrowth(cost, level - 1));
 					}
 				}
-				set({ fuelSeconds: initialFuelSeconds(), upgradeLevels: initialUpgradeLevels() });
+				setSlice({ fuelSeconds: initialFuelSeconds(), upgradeLevels: initialUpgradeLevels() });
 				return true;
 			},
-			resetForTranscension: () => set({ fuelSeconds: initialFuelSeconds(), upgradeLevels: initialUpgradeLevels() }),
-			reset: () => set({ fuelSeconds: initialFuelSeconds(), upgradeLevels: initialUpgradeLevels() }),
-		}),
-		{ name: 'dragonfocus:monuments', storage: createJSONStorage(() => AsyncStorage), partialize: state => ({ fuelSeconds: state.fuelSeconds, upgradeLevels: state.upgradeLevels }) },
-	),
-);
-
-export const createMonumentsSlice: ProductionSpecialSlice<'monuments'> = () => ({ monuments: useMonumentsStore });
+			resetForTranscension: () => setSlice({ fuelSeconds: initialFuelSeconds(), upgradeLevels: initialUpgradeLevels() }),
+			reset: () => setSlice({ fuelSeconds: initialFuelSeconds(), upgradeLevels: initialUpgradeLevels() }),
+		},
+	};
+};

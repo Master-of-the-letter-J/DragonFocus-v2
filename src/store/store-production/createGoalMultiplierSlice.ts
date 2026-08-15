@@ -1,11 +1,9 @@
 import { activeGoalMultiplierProduct, balancedXp, goalMultiplierUpgradeCost, goalMultiplierValue, multiplierLevelForXp } from '@/data/calculations/formula-goal-multipliers';
 import { GOAL_MULTIPLIER_ARCHETYPES, type GoalMultiplierArchetype, type GoalMultiplierLevels, type GoalMultiplierUpgradeLevels, type GoalMultiplierXp } from '@/types/goal-multiplier.types';
 import { decimal } from '@/utils/decimal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create, type StateCreator } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { useResourceStore } from '../store-world/createResourceSlice';
-import { useProductionStore } from './_useProductionStore';
+import { scopeNestedSlice } from '../nested-slice';
+import { useWorldStore } from '../store-world/_useWorldStore';
+import type { ProductionSlice, ProductionStoreState } from './_useProductionStore';
 
 const emptyRecord = <Value>(value: Value): Record<GoalMultiplierArchetype, Value> => Object.fromEntries(GOAL_MULTIPLIER_ARCHETYPES.map(archetype => [archetype, value])) as Record<GoalMultiplierArchetype, Value>;
 
@@ -14,12 +12,10 @@ export interface GoalMultiplierStoreState {
 	levels: GoalMultiplierLevels;
 	upgradeLevels: GoalMultiplierUpgradeLevels;
 	completedGoals: GoalMultiplierLevels;
-	gildedArchetypes: GoalMultiplierArchetype[];
 	claimedShardLevels: GoalMultiplierLevels;
 	recordXp: (archetype: GoalMultiplierArchetype, amount: number) => void;
 	purchaseUpgrade: (archetype: GoalMultiplierArchetype) => boolean;
 	claimLevelShard: (archetype: GoalMultiplierArchetype) => boolean;
-	setGildedArchetypes: (archetypes: GoalMultiplierArchetype[]) => void;
 	isUnlocked: (archetype: GoalMultiplierArchetype) => boolean;
 	getDarkEnergyMultiplier: (archetype: GoalMultiplierArchetype) => number;
 	getProductionMultiplier: () => number;
@@ -40,28 +36,20 @@ const initialState = () => {
 		levels: levelsFromXp(xp),
 		upgradeLevels: emptyRecord(0),
 		completedGoals: emptyRecord(0),
-		gildedArchetypes: [] as GoalMultiplierArchetype[],
 		claimedShardLevels: emptyRecord(0),
 	};
 };
 
-const chaosForgeMultiplier = (archetype: GoalMultiplierArchetype, gilded: readonly GoalMultiplierArchetype[]) => {
-	const production = useProductionStore.getState();
-	const forgeLevel = production.levels['chaos-forge-gilding'] ?? 0;
-	if (!forgeLevel || !gilded.includes(archetype)) return 1;
-	const forgeMultiplier = forgeLevel >= 6 ? Math.floor(1.5 + 0.1 * forgeLevel) : 1.5;
-	const chaosEnergy = useResourceStore.getState().resources.chaosEnergy;
-	const criusMultiplier = (production.levels.crius ?? 0) > 0 ? Math.min(4, 1 + 0.1 * Math.max(0, decimal(chaosEnergy).max(1).log10())) : 1;
-	return forgeMultiplier * criusMultiplier;
-};
+export const createGoalMultiplierSlice: ProductionSlice<'goalMultiplierStore'> = (set, get) => {
+	const { setSlice, getSlice, getRoot } = scopeNestedSlice<ProductionStoreState, 'goalMultiplierStore', GoalMultiplierStoreState>('goalMultiplierStore', set, get);
+	const goalMultipliersAvailable = () => getRoot().unlockState.milestone >= 3;
 
-const goalMultipliersAvailable = () => useProductionStore.getState().unlockState.milestone >= 3;
-
-const createGoalMultiplierStoreSlice: StateCreator<GoalMultiplierStoreState> = (set, get) => ({
-	...initialState(),
-	recordXp: (archetype, amount) => {
+	return {
+		goalMultiplierStore: {
+			...initialState(),
+			recordXp: (archetype, amount) => {
 		if (!goalMultipliersAvailable() || !Number.isFinite(amount) || amount <= 0 || archetype === 'balanced') return;
-		set(state => {
+		setSlice(state => {
 			const xp = { ...state.xp, [archetype]: state.xp[archetype] + Math.floor(amount) };
 			xp.balanced = balancedXp(xp);
 			const completedGoals = { ...state.completedGoals, [archetype]: state.completedGoals[archetype] + 1 };
@@ -70,17 +58,17 @@ const createGoalMultiplierStoreSlice: StateCreator<GoalMultiplierStoreState> = (
 		});
 	},
 	purchaseUpgrade: archetype => {
-		if (!get().isUnlocked(archetype)) return false;
-		const level = get().upgradeLevels[archetype];
-		if (level > 0 || !useResourceStore.getState().spendResource('darkEnergy', decimal(goalMultiplierUpgradeCost(level)))) return false;
-		set(state => ({ upgradeLevels: { ...state.upgradeLevels, [archetype]: 1 } }));
+		if (!getSlice().isUnlocked(archetype)) return false;
+		const level = getSlice().upgradeLevels[archetype];
+		if (level > 0 || !useWorldStore.getState().resourceStore.spendResource('darkEnergy', decimal(goalMultiplierUpgradeCost(level)))) return false;
+		setSlice(state => ({ upgradeLevels: { ...state.upgradeLevels, [archetype]: 1 } }));
 		return true;
 	},
 	claimLevelShard: archetype => {
-		const state = get();
+		const state = getSlice();
 		if (state.claimedShardLevels[archetype] >= state.levels[archetype]) return false;
-		useResourceStore.getState().addResource('shards', 5);
-		set(current => ({
+		useWorldStore.getState().resourceStore.addResource('shards', 5);
+		setSlice(current => ({
 			claimedShardLevels: {
 				...current.claimedShardLevels,
 				[archetype]: current.claimedShardLevels[archetype] + 1,
@@ -88,43 +76,34 @@ const createGoalMultiplierStoreSlice: StateCreator<GoalMultiplierStoreState> = (
 		}));
 		return true;
 	},
-	setGildedArchetypes: archetypes => {
-		const forgeLevel = useProductionStore.getState().levels['chaos-forge-gilding'] ?? 0;
-		if (!forgeLevel) return;
-		const capacity = forgeLevel >= 6 ? GOAL_MULTIPLIER_ARCHETYPES.length : Math.min(5, forgeLevel);
-		set({ gildedArchetypes: [...new Set(archetypes)].filter(archetype => GOAL_MULTIPLIER_ARCHETYPES.includes(archetype)).slice(0, capacity) });
-	},
-	isUnlocked: archetype => goalMultipliersAvailable() && get().completedGoals[archetype] >= 5,
+	isUnlocked: archetype => goalMultipliersAvailable() && getSlice().completedGoals[archetype] >= 5,
 	getDarkEnergyMultiplier: archetype => {
-		const state = get();
+		const state = getSlice();
 		if (!state.isUnlocked(archetype)) return 1;
-		return goalMultiplierValue(state.xp[archetype], chaosForgeMultiplier(archetype, state.gildedArchetypes));
+		return goalMultiplierValue(state.xp[archetype], getRoot().forgingStore.getGildMultiplier(archetype, 'goal'));
 	},
 	getProductionMultiplier: () => {
-		const state = get();
+		const state = getSlice();
 		if (!goalMultipliersAvailable()) return 1;
 		const active = GOAL_MULTIPLIER_ARCHETYPES.filter(archetype => state.isUnlocked(archetype) && state.upgradeLevels[archetype] > 0);
 		return activeGoalMultiplierProduct(state.xp, state.upgradeLevels, active);
 	},
 	respecUpgrades: () => {
-		const state = get();
+		const state = getSlice();
 		const refund = GOAL_MULTIPLIER_ARCHETYPES.reduce((total, archetype) => {
 			const upgrades = state.upgradeLevels[archetype];
 			return total.plus(Array.from({ length: upgrades }, (_, level) => goalMultiplierUpgradeCost(level)).reduce((sum, cost) => sum + cost, 0));
 		}, decimal(0));
-		set({ upgradeLevels: emptyRecord(0), gildedArchetypes: [] });
+		setSlice({ upgradeLevels: emptyRecord(0) });
+		getRoot().forgingStore.clearGilds('goal');
 		return refund;
 	},
 	resetForTranscension: () =>
-		set(state => ({
+		setSlice(state => ({
 			upgradeLevels: emptyRecord(0),
-			gildedArchetypes: [],
 			claimedShardLevels: state.claimedShardLevels,
 		})),
-	reset: () => set(initialState()),
-});
-
-export const useGoalMultiplierStore = create<GoalMultiplierStoreState>()(persist((...store) => ({ ...createGoalMultiplierStoreSlice(...store) }), { name: 'dragonfocus:goal-multipliers', storage: createJSONStorage(() => AsyncStorage) }));
-
-/** Registers Goal Multipliers in the combined production store. */
-export const createGoalMultiplierSlice = () => ({ goalMultiplierStore: useGoalMultiplierStore });
+	reset: () => setSlice(initialState()),
+		},
+	};
+};

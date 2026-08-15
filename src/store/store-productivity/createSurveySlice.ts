@@ -2,12 +2,10 @@ import { FUN_FACTS } from '@/data/productivity-data/funFact';
 import { GOAL_SUGGESTIONS, type GoalSuggestion } from '@/data/productivity-data/goalSuggestion';
 import { QUOTES } from '@/data/productivity-data/quotes';
 import type { GoalType } from '@/types/goals.types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 import { useProductionStore } from '../store-production/_useProductionStore';
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import { useStatsStore } from '../useStatsStore';
+import { scopeNestedSlice } from '../nested-slice';
 import type { ProductivitySlice } from './_useProductivityStore';
 
 export type SurveyKind = 'check-in' | 'check-out';
@@ -74,18 +72,20 @@ const initialState = () => ({
 	archived: [] as SurveySession[],
 });
 
-export const useSurveyStore = create<SurveyStoreState>()(
-	persist(
-		(set, get) => ({
+export const createSurveySlice: ProductivitySlice<'surveys'> = (set, get) => {
+	const { setSlice, getSlice } = scopeNestedSlice<import('./_useProductivityStore').ProductivityStoreState, 'surveys', SurveyStoreState>('surveys', set, get);
+
+	return {
+		surveys: {
 			...initialState(),
 			completeCheckIn: response => {
-				if (get().checkInCompleted) return;
+				if (getSlice().checkInCompleted) return;
 				const completedAt = new Date().toISOString();
 				const mood = response?.mood;
-				if (mood) useResourceStore.getState().addResource('fury', -moodFuryReduction(mood));
+				if (mood) useWorldStore.getState().resourceStore.addResource('fury', -moodFuryReduction(mood));
 				useProductionStore.getState().updateUnlockState({ checkInCompleted: true });
 				useStatsStore.getState().recordSurvey('check-in');
-				set(state => ({
+				setSlice(state => ({
 					checkInCompleted: true,
 					checkOutAvailable: true,
 					checkInStreak: state.checkInStreak + 1,
@@ -93,13 +93,13 @@ export const useSurveyStore = create<SurveyStoreState>()(
 				}));
 			},
 			completeCheckOut: response => {
-				if (!get().checkOutAvailable || get().checkOutCompleted) return false;
+				if (!getSlice().checkOutAvailable || getSlice().checkOutCompleted) return false;
 				const completedAt = new Date().toISOString();
 				const mood = response?.mood;
-				if (mood) useResourceStore.getState().addResource('fury', -moodFuryReduction(mood));
+				if (mood) useWorldStore.getState().resourceStore.addResource('fury', -moodFuryReduction(mood));
 				useProductionStore.getState().updateUnlockState({ checkOutCompleted: true });
 				useStatsStore.getState().recordSurvey('check-out');
-				set(state => {
+				setSlice(state => {
 					const completedSession: SurveySession = {
 						...state.activeSession,
 						checkOut: { mood, goalsAdded: 0, goalsHarvested: response?.goalsHarvested ?? state.activeSession.checkOut?.goalsHarvested ?? 0, completedAt },
@@ -116,7 +116,7 @@ export const useSurveyStore = create<SurveyStoreState>()(
 			},
 			// A streak advances only when its matching survey was completed that day.
 			resetDaily: () =>
-				set(state => ({
+				setSlice(state => ({
 					...initialState(),
 					checkInStreak: state.checkInCompleted ? state.checkInStreak : 0,
 					checkOutStreak: state.checkOutCompleted ? state.checkOutStreak : 0,
@@ -130,12 +130,9 @@ export const useSurveyStore = create<SurveyStoreState>()(
 			getAdvice: (count = 1) => select(surveyAdvice, count),
 			getQuote: (_topic, count = 1) => select(QUOTES, count),
 			getFunFact: (count = 1) => select(FUN_FACTS, count),
-			setGoalsAdded: count => set(state => ({ activeSession: { ...state.activeSession, checkIn: { mood: state.activeSession.checkIn?.mood, goalsAdded: Math.max(0, count), goalsHarvested: 0, completedAt: state.activeSession.checkIn?.completedAt ?? new Date().toISOString() } } })),
-			setGoalsHarvested: count => set(state => ({ activeSession: { ...state.activeSession, checkOut: { mood: state.activeSession.checkOut?.mood, goalsAdded: 0, goalsHarvested: Math.max(0, count), completedAt: state.activeSession.checkOut?.completedAt ?? new Date().toISOString() } } })),
-			reset: () => set(initialState()),
-		}),
-		{ name: 'dragonfocus:surveys', storage: createJSONStorage(() => AsyncStorage) },
-	),
-);
-
-export const createSurveySlice: ProductivitySlice<'surveys'> = () => ({ surveys: useSurveyStore });
+			setGoalsAdded: count => setSlice(state => ({ activeSession: { ...state.activeSession, checkIn: { mood: state.activeSession.checkIn?.mood, goalsAdded: Math.max(0, count), goalsHarvested: 0, completedAt: state.activeSession.checkIn?.completedAt ?? new Date().toISOString() } } })),
+			setGoalsHarvested: count => setSlice(state => ({ activeSession: { ...state.activeSession, checkOut: { mood: state.activeSession.checkOut?.mood, goalsAdded: 0, goalsHarvested: Math.max(0, count), completedAt: state.activeSession.checkOut?.completedAt ?? new Date().toISOString() } } })),
+			reset: () => setSlice(initialState()),
+		},
+	};
+};

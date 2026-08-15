@@ -2,9 +2,8 @@ import { calculateMilestoneGrowth } from '@/data/calculations/formula-production
 import { AMPLIFIERS, PRODUCERS } from '@/data/production-data';
 import { decimal, decimalMax } from '@/utils/decimal';
 import { getDeityLevels, useProductionStore } from '../store-production/_useProductionStore';
-import { usePomodoroStore } from '../store-productivity/createPomodoroSlice';
-import { useSurveyStore } from '../store-productivity/createSurveySlice';
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { useProductivityStore } from '../store-productivity/_useProductivityStore';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import { useStatsStore } from '../useStatsStore';
 import { usePrestigeStore } from '../store-prestige/_usePrestigeStore';
 import { activeStreakCount, onlineLog10 } from './online-progress.formulas';
@@ -13,9 +12,8 @@ import type { OnlineProgressSlice } from './online-progress.types';
 const pantheonMemberCount = (levels: Record<string, number>) => Object.values(getDeityLevels(levels)).filter(level => level > 0).length;
 
 const producerStatistic = (producerId: string, levels: Record<string, number>, completedGoals: number, pomodoroSeconds: number) => {
-	const resources = useResourceStore.getState().resources;
-	const surveys = useSurveyStore.getState();
-	const pomodoro = usePomodoroStore.getState();
+	const resources = useWorldStore.getState().resourceStore.resources;
+	const { surveys, pomodoro } = useProductivityStore.getState();
 	switch (producerId) {
 		case 'solar-panel':
 			return decimal(surveys.checkInStreak);
@@ -30,7 +28,7 @@ const producerStatistic = (producerId: string, levels: Record<string, number>, c
 		case 'bio-reactor':
 			return decimal(Math.max(0, decimalMax(resources.population, 1).div(1_000_000_000).log10()));
 		case 'energy-donation-center':
-			return decimalMax(useResourceStore.getState().dragon.furyThreshold.minus(resources.fury), 0);
+			return decimalMax(useWorldStore.getState().resourceStore.dragon.furyThreshold.minus(resources.fury), 0);
 		case 'dark-nuclear-power-plant':
 			return resources.darkEnergy;
 		case 'lightning-rod':
@@ -87,7 +85,7 @@ export const createEnergyOnlineSlice: OnlineProgressSlice<'calculateProducerEner
 		return PRODUCERS.reduce((total, producer) => {
 			const owned = production.levels[producer.id] ?? 0;
 			if (!owned) return total;
-			const progress = production.producerProgress[producer.id] ?? { durability: producer.baseDurability * 100, quantumGrowths: 0, evolutions: 0, metamorphosed: false };
+			const progress = production.producerStore.progress[producer.id] ?? { durability: producer.baseDurability * 100, quantumGrowths: 0, evolutions: 0, metamorphosed: false };
 			const statistic = producerStatistic(producer.id, production.levels, stats.totalGoalsCompleted, stats.pomodoroSeconds);
 			const coreUpgradeLevel = production.levels[`${producer.id}-core-upgrade`] ?? 0;
 			const specialUpgradeLevel = production.levels[`${producer.id}-special-upgrade`] ?? 0;
@@ -128,12 +126,12 @@ export const createEnergyOnlineSlice: OnlineProgressSlice<'calculateProducerEner
 				{ start: 100, repeatEvery: 25, multiplier: 4 },
 				{ start: 500, repeatEvery: 500, multiplier: 100 },
 			]);
-			return total.plus(decimal(amplifier.amplification).times(owned).times(milestoneMultiplier).times(production.getForgeMultiplier(amplifier.id, 'amplifier')).times(amplifierEfficiency));
+			return total.plus(decimal(amplifier.amplification).times(owned).times(milestoneMultiplier).times(production.forgingStore.getGildMultiplier(amplifier.id, 'amplifier')).times(amplifierEfficiency));
 		}, decimal(1));
 	},
 	calculateOtherEnergyMultipliers: () => {
 		const production = useProductionStore.getState();
-		const resources = useResourceStore.getState();
+		const resources = useWorldStore.getState().resourceStore;
 		const levels = production.levels;
 		const pantheonLevels = getDeityLevels(levels);
 		const armageddonSeconds = Math.max(0, (Date.now() - Date.parse(usePrestigeStore.getState().armageddonStartedAt)) / 1_000);

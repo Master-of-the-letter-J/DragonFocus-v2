@@ -1,10 +1,10 @@
 import { Tabs } from 'expo-router';
 import { BottomTabIcon } from '@/components/app-shell/BottomTabIcon';
 import { dragonTheme } from '@/constants/dragon-theme';
-import { usePomodoroStore } from '@/store/store-productivity/createPomodoroSlice';
+import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
 
 export default function TabLayout() {
-	const focusSessionActive = usePomodoroStore(state => state.status !== 'idle');
+	const focusSessionActive = useProductivityStore(state => state.pomodoro.status !== 'idle');
 	return (
 		<Tabs
 			screenOptions={{

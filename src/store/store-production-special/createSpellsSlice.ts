@@ -1,11 +1,9 @@
 import type { ActiveSpell, Spell } from '@/types/world.types';
 import { createSpell, getSpellLuckMultiplier, spellSellValue } from '@/data/world-data/spells';
 import { SPELL_LOOTBOX_BY_ID, rollWeightedSpellSize, type SpellLootboxId } from '@/data/world-data/spell-lootboxes';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create } from 'zustand';
-import type { ProductionSpecialSlice } from './_useProductionSpecialStore';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { scopeNestedSlice } from '../nested-slice';
+import type { ProductionSpecialSlice, ProductionSpecialStoreState } from './_useProductionSpecialStore';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import { useProductionStore } from '../store-production/_useProductionStore';
 
 const REWARDED_AD_WINDOW_MS = 8 * 60 * 60 * 1_000;
@@ -48,18 +46,20 @@ const rollLootbox = (id: SpellLootboxId, random: () => number) => {
 };
 
 /** Timed spells own the inventory and countdowns for temporary resource effects. */
-export const useSpellsStore = create<SpellsStoreState>()(
-	persist(
-		(set, get) => ({
+export const createSpellsSlice: ProductionSpecialSlice<'spells'> = (set, get) => {
+	const { setSlice, getSlice } = scopeNestedSlice<ProductionSpecialStoreState, 'spells', SpellsStoreState>('spells', set, get);
+
+	return {
+		spells: {
 			...initialState(),
-			addSpell: spell => set(state => ({ spellInventory: [...state.spellInventory, spell] })),
+			addSpell: spell => setSlice(state => ({ spellInventory: [...state.spellInventory, spell] })),
 			activateSpell: (id, durationMultiplier = 1) => {
-				const spell = get().spellInventory.find(candidate => candidate.id === id);
+				const spell = getSlice().spellInventory.find(candidate => candidate.id === id);
 				if (!spell) return false;
 				const hectateLevel = useProductionStore.getState().levels.hectate ?? 0;
 				const effectMultiplier = hectateLevel > 0 ? 2 * hectateLevel : 1;
 				const activatedSpell = { ...spell, effects: spell.effects.map(effect => ({ ...effect, multiplier: effect.multiplier * effectMultiplier })) };
-				set(state => ({
+				setSlice(state => ({
 					spellInventory: state.spellInventory.filter(candidate => candidate.id !== id),
 					activeSpells: (() => {
 						const activeIndex = state.activeSpells.findIndex(candidate => candidate.spellType === spell.spellType && candidate.size === spell.size);
@@ -72,27 +72,27 @@ export const useSpellsStore = create<SpellsStoreState>()(
 				return true;
 			},
 			sellSpell: id => {
-				const spell = get().spellInventory.find(candidate => candidate.id === id);
+				const spell = getSlice().spellInventory.find(candidate => candidate.id === id);
 				if (!spell) return false;
-				useResourceStore.getState().addResource('shards', spellSellValue(spell.size));
-				set(state => ({ spellInventory: state.spellInventory.filter(candidate => candidate.id !== id) }));
+				useWorldStore.getState().resourceStore.addResource('shards', spellSellValue(spell.size));
+				setSlice(state => ({ spellInventory: state.spellInventory.filter(candidate => candidate.id !== id) }));
 				return true;
 			},
 			openLootbox: (id, random = Math.random) => {
 				const box = SPELL_LOOTBOX_BY_ID[id];
-				if (!box || !useResourceStore.getState().spendResource('shards', box.shardCost)) return [];
+				if (!box || !useWorldStore.getState().resourceStore.spendResource('shards', box.shardCost)) return [];
 				const spells = rollLootbox(id, random);
-				set(state => ({ spellInventory: [...state.spellInventory, ...spells] }));
+				setSlice(state => ({ spellInventory: [...state.spellInventory, ...spells] }));
 				return spells;
 			},
 			claimRewardedAdLootbox: (verifiedRewardId, random = Math.random, now = new Date()) => {
-				const state = get();
+				const state = getSlice();
 				if (!verifiedRewardId.trim() || state.claimedRewardedAdIds.includes(verifiedRewardId)) return [];
 				const windowExpired = now.getTime() - Date.parse(state.rewardedAdWindowStartedAt) >= REWARDED_AD_WINDOW_MS;
 				const claims = windowExpired ? 0 : state.rewardedAdClaims;
 				if (claims >= REWARDED_AD_CLAIMS_PER_WINDOW) return [];
 				const spells = rollLootbox('basic', random);
-				set(current => ({
+				setSlice(current => ({
 					spellInventory: [...current.spellInventory, ...spells],
 					rewardedAdClaims: claims + 1,
 					rewardedAdWindowStartedAt: windowExpired ? now.toISOString() : current.rewardedAdWindowStartedAt,
@@ -101,20 +101,17 @@ export const useSpellsStore = create<SpellsStoreState>()(
 				return spells;
 			},
 			getRewardedAdClaimsRemaining: (now = new Date()) => {
-				const state = get();
+				const state = getSlice();
 				return now.getTime() - Date.parse(state.rewardedAdWindowStartedAt) >= REWARDED_AD_WINDOW_MS ? REWARDED_AD_CLAIMS_PER_WINDOW : Math.max(0, REWARDED_AD_CLAIMS_PER_WINDOW - state.rewardedAdClaims);
 			},
 			tickSpells: seconds => {
 				if (!Number.isFinite(seconds) || seconds <= 0) return;
-				set(state => ({
+				setSlice(state => ({
 					activeSpells: state.activeSpells.map(spell => ({ ...spell, remainingSeconds: Math.max(0, spell.remainingSeconds - seconds) })).filter(spell => spell.remainingSeconds > 0),
 				}));
 			},
-			clearActiveSpells: () => set({ activeSpells: [] }),
-			reset: () => set(initialState()),
-		}),
-		{ name: 'dragonfocus:spells', storage: createJSONStorage(() => AsyncStorage) },
-	),
-);
-
-export const createSpellsSlice: ProductionSpecialSlice<'spells'> = () => ({ spells: useSpellsStore });
+			clearActiveSpells: () => setSlice({ activeSpells: [] }),
+			reset: () => setSlice(initialState()),
+		},
+	};
+};

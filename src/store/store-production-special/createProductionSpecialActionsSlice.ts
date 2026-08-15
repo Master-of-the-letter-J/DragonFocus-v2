@@ -1,16 +1,11 @@
-import { useConvertorStore } from './createConvertorSlice';
-import { useCrimsonHeartStore } from './createCrimsonHeartSlice';
-import { useIncineratorStore } from './createIncineratorSlice';
-import { useMonumentsStore } from './createMonumentsSlice';
-import { useSpellsStore } from './createSpellsSlice';
 import type { ProductionSpecialSlice } from './_useProductionSpecialStore';
 
-export const createProductionSpecialActionsSlice: ProductionSpecialSlice<'resetProductionSpecial'> = () => ({
+export const createProductionSpecialActionsSlice: ProductionSpecialSlice<'resetProductionSpecial'> = (_set, get) => ({
 	resetProductionSpecial: () => {
-		useConvertorStore.getState().reset();
-		useCrimsonHeartStore.getState().reset();
-		useIncineratorStore.getState().reset();
-		useSpellsStore.getState().reset();
-		useMonumentsStore.getState().reset();
+		get().convertor.reset();
+		get().crimsonHeart.reset();
+		get().incinerator.reset();
+		get().spells.reset();
+		get().monuments.reset();
 	},
 });

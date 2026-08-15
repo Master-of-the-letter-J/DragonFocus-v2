@@ -1,4 +1,4 @@
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import type { PremiumSlice } from './premium.types';
 
 export const createAccountSlice: PremiumSlice<'account' | 'redeemedSignupGrantIds' | 'applyVerifiedAccount' | 'signOut'> = set => ({
@@ -14,7 +14,7 @@ export const createAccountSlice: PremiumSlice<'account' | 'redeemedSignupGrantId
 				redeemedSignupGrantIds: grantSignupReward ? [...state.redeemedSignupGrantIds, account.signupRewardGrantId!] : state.redeemedSignupGrantIds,
 			};
 		});
-		if (grantSignupReward) useResourceStore.getState().addResource('shards', 50);
+		if (grantSignupReward) useWorldStore.getState().resourceStore.addResource('shards', 50);
 		return true;
 	},
 	signOut: () => set({ account: undefined }),

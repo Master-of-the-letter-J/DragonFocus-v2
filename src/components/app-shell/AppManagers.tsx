@@ -1,6 +1,6 @@
-import { useOffline } from '@/store/store-offline-progress/_useOfflineProgressStore';
+import { useOfflineProgressStore } from '@/store/store-offline-progress/_useOfflineProgressStore';
 import { useOnlineProgressStore } from '@/store/store-online-progress/_useOnlineProgressStore';
-import { useWorldOptionsStore } from '@/store/store-world/createWorldOptionsSlice';
+import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { useAppStore } from '@/store/useAppStore';
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
@@ -35,11 +35,11 @@ function NewOfflineManager() {
 			const previous = stateRef.current;
 			stateRef.current = nextState;
 			if (nextState === 'background' || nextState === 'inactive') {
-				useOffline.getState().markBackgrounded();
-				useWorldOptionsStore.getState().setActivity('off-app');
+				useOfflineProgressStore.getState().markBackgrounded();
+				useWorldStore.getState().optionsStore.setActivity('off-app');
 			} else if (nextState === 'active' && previous !== 'active') {
 				useOnlineProgressStore.getState().giveOfflineProgress();
-				useWorldOptionsStore.getState().setActivity('idle');
+				useWorldStore.getState().optionsStore.setActivity('idle');
 				useAppStore.getState().markOpened();
 			}
 		});

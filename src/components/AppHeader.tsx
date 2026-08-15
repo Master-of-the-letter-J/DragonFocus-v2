@@ -1,13 +1,13 @@
-import { useGoalStore } from '@/store/store-productivity/createGoalSlice';
-import { useResourceStore } from '@/store/store-world/createResourceSlice';
+import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
+import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { formatDecimal } from '@/utils/decimal';
 import { StyleSheet, Text, View } from 'react-native';
 
 export function AppHeader() {
-	const resources = useResourceStore(state => state.resources);
-	const dragon = useResourceStore(state => state.dragon);
-	const habits = useGoalStore(state => state.incompleteHabits.length);
-	const tasks = useGoalStore(state => state.incompleteTasks.length);
+	const resources = useWorldStore(state => state.resourceStore.resources);
+	const dragon = useWorldStore(state => state.resourceStore.dragon);
+	const habits = useProductivityStore(state => state.goals.incompleteHabits.length);
+	const tasks = useProductivityStore(state => state.goals.incompleteTasks.length);
 
 	return (
 		<View style={styles.shell}>

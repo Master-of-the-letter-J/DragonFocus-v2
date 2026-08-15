@@ -6,23 +6,22 @@ import { useProductionStore } from './store-production/_useProductionStore';
 import { useProductivityStore } from './store-productivity/_useProductivityStore';
 import { useWorldStore } from './store-world/_useWorldStore';
 import { usePrestigeStore } from './store-prestige/_usePrestigeStore';
-import { useProductionSpecial } from './store-production-special/_useProductionSpecialStore';
-import { useOffline } from './store-offline-progress/_useOfflineProgressStore';
+import { useProductionSpecialStore } from './store-production-special/_useProductionSpecialStore';
+import { useOfflineProgressStore } from './store-offline-progress/_useOfflineProgressStore';
 import { useOnlineProgressStore } from './store-online-progress/_useOnlineProgressStore';
 import { useStatsStore } from './useStatsStore';
 import { usePremiumStore } from './store-premium/_usePremiumStore';
 
 /**
- * A single discoverability point for every game slice. Each member remains its
- * own Zustand store so updates stay scoped to the feature that changed.
+ * A single discoverability point for each domain-level Zustand store.
  */
 export const appStoreSlices = {
 	world: useWorldStore,
 	prestige: usePrestigeStore,
 	production: useProductionStore,
-	productionSpecial: useProductionSpecial,
+	productionSpecial: useProductionSpecialStore,
 	productivity: useProductivityStore,
-	offline: useOffline,
+	offline: useOfflineProgressStore,
 	online: useOnlineProgressStore,
 	stats: useStatsStore,
 	premium: usePremiumStore,
@@ -61,6 +60,8 @@ const storageKeys = [
 	'dragonfocus:app',
 	'dragonfocus:resources',
 	'dragonfocus:production',
+	'dragonfocus:production-special',
+	'dragonfocus:productivity',
 	'dragonfocus:monuments',
 	'dragonfocus:goal-multipliers',
 	'dragonfocus:goals',
@@ -133,8 +134,8 @@ const createAppPreferencesSlice: AppSlice<
 	markOpened: () => set({ lastOpenedAt: new Date().toISOString() }),
 	startGame: () => {
 		const now = new Date().toISOString();
-		if (!useWorldStore.getState().dragonStore.getState().dragonSpawned) {
-			useWorldStore.getState().dragonStore.getState().spawnDragon();
+		if (!useWorldStore.getState().dragonStore.dragonSpawned) {
+			useWorldStore.getState().dragonStore.spawnDragon();
 		}
 		set(state => ({ hasEntered: true, startedAt: state.startedAt ?? now, lastOpenedAt: now }));
 	},
@@ -144,10 +145,10 @@ const createAppResetSlice: AppSlice<'resetEverything'> = set => ({
 	resetEverything: async () => {
 		useProductivityStore.getState().resetProductivity();
 		useProductionStore.getState().reset();
-		useProductionSpecial.getState().resetProductionSpecial();
+		useProductionSpecialStore.getState().resetProductionSpecial();
 		useWorldStore.getState().reset();
 		usePrestigeStore.getState().reset();
-		useOffline.getState().reset();
+		useOfflineProgressStore.getState().reset();
 		useOnlineProgressStore.getState().reset();
 		useStatsStore.getState().reset();
 		usePremiumStore.getState().reset();

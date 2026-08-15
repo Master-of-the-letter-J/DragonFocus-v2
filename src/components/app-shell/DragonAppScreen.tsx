@@ -1,7 +1,7 @@
 import { EffectsPanel } from '@/components/app-shell/EffectsPanel';
 import { SecondaryPanel, type PanelMode } from '@/components/app-shell/SecondaryPanel';
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
-import { useResourceStore } from '@/store/store-world/createResourceSlice';
+import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { formatDecimal } from '@/utils/decimal';
 import { router } from 'expo-router';
 import type { PropsWithChildren } from 'react';
@@ -31,7 +31,7 @@ const panelChoices: { id: PanelMode; label: string }[] = [
 ];
 
 export function DragonAppScreen({ title, panel, effects = false, children, scrollProps }: PropsWithChildren<{ title: string; panel: PanelMode; effects?: boolean; scrollProps?: ScrollViewProps }>) {
-	const shards = useResourceStore(state => state.resources.shards);
+	const shards = useWorldStore(state => state.resourceStore.resources.shards);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [panelOpen, setPanelOpen] = useState(false);
 	const [panelMode, setPanelMode] = useState(panel);

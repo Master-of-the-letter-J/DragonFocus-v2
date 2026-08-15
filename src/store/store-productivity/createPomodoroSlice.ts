@@ -1,21 +1,13 @@
 import { decimal } from '@/utils/decimal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { POMODORO_BOOSTS } from '@/data/productivity-data/pomodoro-boosts';
 import { useProductionStore } from '../store-production/_useProductionStore';
-import { useCrimsonHeartStore } from '../store-production-special/createCrimsonHeartSlice';
-import { useResourceStore } from '../store-world/createResourceSlice';
+import { useProductionSpecialStore } from '../store-production-special/_useProductionSpecialStore';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import { useStatsStore } from '../useStatsStore';
+import { scopeNestedSlice } from '../nested-slice';
 import type { ProductivitySlice } from './_useProductivityStore';
 
 export type PomodoroStatus = 'idle' | 'countdown-active' | 'countdown-break' | 'count-up' | 'crimson-heart';
-
-export interface PomodoroBoost {
-	id: string;
-	name: string;
-	resourceMultiplier: number;
-	description: string;
-}
 
 export interface CompletedPomodoroSession {
 	seconds: number;
@@ -52,12 +44,6 @@ export interface PomodoroStoreState {
 	reset: () => void;
 }
 
-export const POMODORO_BOOSTS: PomodoroBoost[] = [
-	{ id: 'steady-flame', name: 'Steady Flame', resourceMultiplier: 1.25, description: 'A reliable production boost.' },
-	{ id: 'clear-mind', name: 'Clear Mind', resourceMultiplier: 1.5, description: 'A stronger reward boost for focused sessions.' },
-	{ id: 'crimson-surge', name: 'Crimson Surge', resourceMultiplier: 2, description: 'A powerful short-session multiplier.' },
-];
-
 const initialState = () => ({
 	status: 'idle' as PomodoroStatus,
 	isPaused: false,
@@ -89,8 +75,8 @@ const rewardForSession = (seconds: number, completed: boolean): CompletedPomodor
 
 const applySessionReward = (session: CompletedPomodoroSession) => {
 	if (!session.completed || !session.seconds) return;
-	useResourceStore.getState().addResource('shards', session.shards);
-	useResourceStore.getState().addResource('fury', decimal(session.furyReduction).neg());
+	useWorldStore.getState().resourceStore.addResource('shards', session.shards);
+	useWorldStore.getState().resourceStore.addResource('fury', decimal(session.furyReduction).neg());
 	useStatsStore.getState().recordPomodoro(session.seconds);
 	useProductionStore.getState().updateUnlockState({ pomodoroMinutes: useProductionStore.getState().unlockState.pomodoroMinutes + session.seconds / 60 });
 };
@@ -100,47 +86,49 @@ const fillCrimsonHeartForPomodoro = () => {
 	const levels = useProductionStore.getState().levels;
 	const activation = levels['crimson-activation'] ? 1 : 0;
 	const awakening = levels['crimson-pomodoro-awakening'] ?? 0;
-	useCrimsonHeartStore.getState().setCharge(Math.min(100, awakening * 100 || activation));
+	useProductionSpecialStore.getState().crimsonHeart.setCharge(Math.min(100, awakening * 100 || activation));
 };
 
-export const usePomodoroStore = create<PomodoroStoreState>()(
-	persist(
-		(set, get) => ({
+export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = (set, get) => {
+	const { setSlice, getSlice } = scopeNestedSlice<import('./_useProductivityStore').ProductivityStoreState, 'pomodoro', PomodoroStoreState>('pomodoro', set, get);
+
+	return {
+		pomodoro: {
 			...initialState(),
 			startCountdown: minutes => {
-				if (!Number.isFinite(minutes) || minutes <= 0 || get().status !== 'idle') return false;
+				if (!Number.isFinite(minutes) || minutes <= 0 || getSlice().status !== 'idle') return false;
 				const seconds = Math.round(minutes * 60);
-				set({ status: 'countdown-active', isPaused: false, secondsRemaining: seconds, elapsedSeconds: 0, activeDurationSeconds: seconds });
+				setSlice({ status: 'countdown-active', isPaused: false, secondsRemaining: seconds, elapsedSeconds: 0, activeDurationSeconds: seconds });
 				fillCrimsonHeartForPomodoro();
 				return true;
 			},
 			startCountUp: () => {
-				if (get().status !== 'idle') return false;
-				set({ status: 'count-up', isPaused: false, secondsRemaining: 0, elapsedSeconds: 0 });
+				if (getSlice().status !== 'idle') return false;
+				setSlice({ status: 'count-up', isPaused: false, secondsRemaining: 0, elapsedSeconds: 0 });
 				fillCrimsonHeartForPomodoro();
 				return true;
 			},
-			pause: () => set(state => (state.status === 'idle' ? state : { isPaused: true })),
-			resume: () => set(state => (state.status === 'idle' ? state : { isPaused: false })),
+			pause: () => setSlice(state => (state.status === 'idle' ? state : { isPaused: true })),
+			resume: () => setSlice(state => (state.status === 'idle' ? state : { isPaused: false })),
 			tick: (seconds = 1) => {
-				const state = get();
+				const state = getSlice();
 				if (state.status === 'idle' || state.isPaused || seconds <= 0) return undefined;
 				if (state.status === 'countdown-active' || state.status === 'countdown-break') {
 					const remaining = Math.max(0, state.secondsRemaining - seconds);
-					set({ secondsRemaining: remaining, elapsedSeconds: state.elapsedSeconds + seconds });
+					setSlice({ secondsRemaining: remaining, elapsedSeconds: state.elapsedSeconds + seconds });
 					if (remaining > 0) return undefined;
-					return get().endSession(state.status === 'countdown-active');
+					return getSlice().endSession(state.status === 'countdown-active');
 				}
-				set({ elapsedSeconds: state.elapsedSeconds + seconds });
+				setSlice({ elapsedSeconds: state.elapsedSeconds + seconds });
 				return undefined;
 			},
 			endSession: (completed = false) => {
-				const state = get();
+				const state = getSlice();
 				if (state.status === 'idle') return undefined;
 				const isFocusSession = state.status === 'countdown-active' || state.status === 'count-up' || state.status === 'crimson-heart';
 				const session = rewardForSession(state.elapsedSeconds, completed && isFocusSession);
 				applySessionReward(session);
-				set(current => ({
+				setSlice(current => ({
 					...initialState(),
 					pinnedGoalIds: current.pinnedGoalIds,
 					activeBoostIds: current.activeBoostIds,
@@ -153,29 +141,26 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
 				return session;
 			},
 			startBreak: kind => {
-				const state = get();
+				const state = getSlice();
 				if (state.status !== 'idle') return false;
 				const seconds = kind === 'short' ? state.shortBreakSeconds : state.longBreakSeconds;
-				set({ status: 'countdown-break', isPaused: false, secondsRemaining: seconds, elapsedSeconds: 0, activeDurationSeconds: seconds });
+				setSlice({ status: 'countdown-break', isPaused: false, secondsRemaining: seconds, elapsedSeconds: 0, activeDurationSeconds: seconds });
 				return true;
 			},
 			adjustTime: seconds =>
-				set(state => {
+				setSlice(state => {
 					if (state.status === 'idle' || !Number.isFinite(seconds)) return state;
 					return { secondsRemaining: Math.max(0, state.secondsRemaining + Math.round(seconds)), activeDurationSeconds: Math.max(1, state.activeDurationSeconds + Math.round(seconds)) };
 				}),
 			setBreakDurations: (shortMinutes, longMinutes) => {
 				if (shortMinutes <= 0 || longMinutes <= shortMinutes) return false;
-				set({ shortBreakSeconds: Math.round(shortMinutes * 60), longBreakSeconds: Math.round(longMinutes * 60) });
+				setSlice({ shortBreakSeconds: Math.round(shortMinutes * 60), longBreakSeconds: Math.round(longMinutes * 60) });
 				return true;
 			},
-			pinGoal: goalId => set(state => (state.pinnedGoalIds.includes(goalId) ? state : { pinnedGoalIds: [...state.pinnedGoalIds, goalId] })),
-			unpinGoal: goalId => set(state => ({ pinnedGoalIds: state.pinnedGoalIds.filter(id => id !== goalId) })),
-			setActiveBoosts: boostIds => set({ activeBoostIds: boostIds.filter(id => POMODORO_BOOSTS.some(boost => boost.id === id)) }),
-			reset: () => set(initialState()),
-		}),
-		{ name: 'dragonfocus:pomodoro', storage: createJSONStorage(() => AsyncStorage) },
-	),
-);
-
-export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = () => ({ pomodoro: usePomodoroStore });
+			pinGoal: goalId => setSlice(state => (state.pinnedGoalIds.includes(goalId) ? state : { pinnedGoalIds: [...state.pinnedGoalIds, goalId] })),
+			unpinGoal: goalId => setSlice(state => ({ pinnedGoalIds: state.pinnedGoalIds.filter(id => id !== goalId) })),
+			setActiveBoosts: boostIds => setSlice({ activeBoostIds: boostIds.filter(id => POMODORO_BOOSTS.some(boost => boost.id === id)) }),
+			reset: () => setSlice(initialState()),
+		},
+	};
+};

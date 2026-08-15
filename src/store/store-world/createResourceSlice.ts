@@ -3,9 +3,8 @@ import { WORLD_CONSTANTS } from '@/constants/world.constants';
 import { RESOURCE_IDS, type PersistedResourceAmounts, type ResourceAmounts, type ResourceId, type SpendableResourceId } from '@/types/resources.types';
 import type { DragonState } from '@/types/world.types';
 import { decimal, deserializeDecimal, serializeDecimal, type DecimalSource } from '@/utils/decimal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { scopeNestedSlice } from '../nested-slice';
+import type { WorldSlice, WorldStoreState } from './_useWorldStore';
 
 const resourceIds: readonly ResourceId[] = RESOURCE_IDS;
 
@@ -52,14 +51,16 @@ const initialState = () => ({
 	populationDead: decimal(0),
 });
 
-export const useResourceStore = create<ResourceStoreState>()(
-	persist(
-		(set, get) => ({
+export const createResourceSlice: WorldSlice<'resourceStore'> = (set, get) => {
+	const { setSlice, getSlice } = scopeNestedSlice<WorldStoreState, 'resourceStore', ResourceStoreState>('resourceStore', set, get);
+
+	return {
+		resourceStore: {
 			...initialState(),
 			addResource: (resource, amount, generated = false) => {
 				const gain = decimal(amount);
 				if (gain.eq(0)) return;
-				set(state => {
+				setSlice(state => {
 					const nextResources = { ...state.resources, [resource]: state.resources[resource].plus(gain) };
 					const nextDragon = resource === 'fury' ? { ...state.dragon, fury: nextResources.fury } : state.dragon;
 					return {
@@ -74,34 +75,34 @@ export const useResourceStore = create<ResourceStoreState>()(
 			},
 			spendResource: (resource, amount) => {
 				const cost = decimal(amount);
-				if (cost.lt(0) || get().resources[resource].lt(cost)) return false;
-				set(state => ({ resources: { ...state.resources, [resource]: state.resources[resource].minus(cost) } }));
+				if (cost.lt(0) || getSlice().resources[resource].lt(cost)) return false;
+				setSlice(state => ({ resources: { ...state.resources, [resource]: state.resources[resource].minus(cost) } }));
 				return true;
 			},
 			setResource: (resource, amount) =>
-				set(state => {
+				setSlice(state => {
 					const resources = { ...state.resources, [resource]: decimal(amount) };
 					return { resources, dragon: resource === 'fury' ? { ...state.dragon, fury: resources.fury } : state.dragon };
 				}),
-			getNonGeneratedThisTranscension: resource => decimal(0).max(get().totalThisTranscension[resource].minus(get().generatedThisTranscension[resource])),
+			getNonGeneratedThisTranscension: resource => decimal(0).max(getSlice().totalThisTranscension[resource].minus(getSlice().generatedThisTranscension[resource])),
 			setDragon: changes =>
-				set(state => {
+				setSlice(state => {
 					const dragon = { ...state.dragon, ...changes };
 					return { dragon, resources: { ...state.resources, fury: dragon.fury } };
 				}),
 			addPopulation: (alive, dead = 0) =>
-				set(state => ({
+				setSlice(state => ({
 					resources: { ...state.resources, population: decimal(0).max(state.resources.population.plus(alive)) },
 					populationDead: state.populationDead.plus(dead),
 				})),
 			resetForArmageddon: () =>
-				set(state => ({
+				setSlice(state => ({
 					resources: { ...state.resources, energy: decimal(0), fury: decimal(0) },
 					totalThisArmageddon: createResourceAmounts({ population: state.resources.population }),
 					dragon: { ...state.dragon, fury: decimal(0) },
 				})),
 			resetForTranscension: (preservePopulation = false) =>
-				set(state => {
+				setSlice(state => {
 					const population = preservePopulation ? state.resources.population : decimal(WORLD_CONSTANTS.initialPopulation);
 					return {
 						resources: {
@@ -124,36 +125,31 @@ export const useResourceStore = create<ResourceStoreState>()(
 						populationDead: preservePopulation ? state.populationDead : decimal(0),
 					};
 				}),
-			reset: () => set(initialState()),
-		}),
-		{
-			name: 'dragonfocus:resources',
-			storage: createJSONStorage(() => AsyncStorage),
-			partialize: state => ({
-				resources: serializeAmounts(state.resources),
-				totalThisArmageddon: serializeAmounts(state.totalThisArmageddon),
-				totalThisTranscension: serializeAmounts(state.totalThisTranscension),
-				totalAllTime: serializeAmounts(state.totalAllTime),
-				generatedThisTranscension: serializeAmounts(state.generatedThisTranscension),
-				populationDead: serializeDecimal(state.populationDead),
-				dragon: { ...state.dragon, fury: serializeDecimal(state.dragon.fury), furyThreshold: serializeDecimal(state.dragon.furyThreshold), maxFury: serializeDecimal(state.dragon.maxFury) },
-			}),
-			merge: (persisted, current) => {
-				const stored = persisted as Partial<Record<'resources' | 'totalThisArmageddon' | 'totalThisTranscension' | 'totalAllTime' | 'generatedThisTranscension', PersistedResourceAmounts>> & { dragon?: Partial<DragonState> & { fury?: string; furyThreshold?: string; maxFury?: string }; populationDead?: string };
-				return {
-					...current,
-					resources: hydrateAmounts(migrateMicroQuarks(stored.resources), current.resources),
-					totalThisArmageddon: hydrateAmounts(migrateMicroQuarks(stored.totalThisArmageddon), current.totalThisArmageddon),
-					totalThisTranscension: hydrateAmounts(migrateMicroQuarks(stored.totalThisTranscension), current.totalThisTranscension),
-					totalAllTime: hydrateAmounts(migrateMicroQuarks(stored.totalAllTime), current.totalAllTime),
-					generatedThisTranscension: hydrateAmounts(migrateMicroQuarks(stored.generatedThisTranscension), current.generatedThisTranscension),
-					populationDead: deserializeDecimal(stored.populationDead, current.populationDead),
-					dragon: stored.dragon ? { ...current.dragon, ...stored.dragon, fury: deserializeDecimal(stored.dragon.fury, current.dragon.fury), furyThreshold: deserializeDecimal(stored.dragon.furyThreshold, current.dragon.furyThreshold), maxFury: deserializeDecimal(stored.dragon.maxFury, current.dragon.maxFury) } : current.dragon,
-				};
-			},
+			reset: () => setSlice(initialState()),
 		},
-	),
-);
+	};
+};
 
-/** Registers the canonical resource hook in the combined world store. */
-export const createResourceSlice = () => ({ resourceStore: useResourceStore });
+export const serializeResourceState = (state: ResourceStoreState) => ({
+	resources: serializeAmounts(state.resources),
+	totalThisArmageddon: serializeAmounts(state.totalThisArmageddon),
+	totalThisTranscension: serializeAmounts(state.totalThisTranscension),
+	totalAllTime: serializeAmounts(state.totalAllTime),
+	generatedThisTranscension: serializeAmounts(state.generatedThisTranscension),
+	populationDead: serializeDecimal(state.populationDead),
+	dragon: { ...state.dragon, fury: serializeDecimal(state.dragon.fury), furyThreshold: serializeDecimal(state.dragon.furyThreshold), maxFury: serializeDecimal(state.dragon.maxFury) },
+});
+
+export const hydrateResourceState = (persisted: unknown, current: ResourceStoreState): ResourceStoreState => {
+	const stored = persisted as Partial<Record<'resources' | 'totalThisArmageddon' | 'totalThisTranscension' | 'totalAllTime' | 'generatedThisTranscension', PersistedResourceAmounts>> & { dragon?: Partial<DragonState> & { fury?: string; furyThreshold?: string; maxFury?: string }; populationDead?: string };
+	return {
+		...current,
+		resources: hydrateAmounts(migrateMicroQuarks(stored?.resources), current.resources),
+		totalThisArmageddon: hydrateAmounts(migrateMicroQuarks(stored?.totalThisArmageddon), current.totalThisArmageddon),
+		totalThisTranscension: hydrateAmounts(migrateMicroQuarks(stored?.totalThisTranscension), current.totalThisTranscension),
+		totalAllTime: hydrateAmounts(migrateMicroQuarks(stored?.totalAllTime), current.totalAllTime),
+		generatedThisTranscension: hydrateAmounts(migrateMicroQuarks(stored?.generatedThisTranscension), current.generatedThisTranscension),
+		populationDead: deserializeDecimal(stored?.populationDead, current.populationDead),
+		dragon: stored?.dragon ? { ...current.dragon, ...stored.dragon, fury: deserializeDecimal(stored.dragon.fury, current.dragon.fury), furyThreshold: deserializeDecimal(stored.dragon.furyThreshold, current.dragon.furyThreshold), maxFury: deserializeDecimal(stored.dragon.maxFury, current.dragon.maxFury) } : current.dragon,
+	};
+};

@@ -5,21 +5,12 @@ import { SPECIAL_GENERATORS } from '@/data/production-data';
 import { milestoneForEnergy } from '@/data/world-data/milestones';
 import type { ActiveSpell, AppActivity, Spell } from '@/types/world.types';
 import { decimal, decimalMax, decimalMin } from '@/utils/decimal';
-import { useOffline } from '../store-offline-progress/_useOfflineProgressStore';
+import { useOfflineProgressStore } from '../store-offline-progress/_useOfflineProgressStore';
 import { usePrestigeStore } from '../store-prestige/_usePrestigeStore';
 import { getDeityLevels, useProductionStore } from '../store-production/_useProductionStore';
-import { useGoalMultiplierStore } from '../store-production/createGoalMultiplierSlice';
-import { useCrimsonHeartStore } from '../store-production-special/createCrimsonHeartSlice';
-import { useIncineratorStore } from '../store-production-special/createIncineratorSlice';
-import { useMonumentsStore } from '../store-production-special/createMonumentsSlice';
-import { useSpellsStore } from '../store-production-special/createSpellsSlice';
-import { useGoalStore } from '../store-productivity/createGoalSlice';
-import { usePomodoroStore } from '../store-productivity/createPomodoroSlice';
-import { useDestructionStore } from '../store-world/createDestructionSlice';
-import { useDragonStore } from '../store-world/createDragonSlice';
-import { usePopulationStore } from '../store-world/createPopulationSlice';
-import { useResourceStore } from '../store-world/createResourceSlice';
-import { useWorldOptionsStore } from '../store-world/createWorldOptionsSlice';
+import { useProductionSpecialStore } from '../store-production-special/_useProductionSpecialStore';
+import { useProductivityStore } from '../store-productivity/_useProductivityStore';
+import { useWorldStore } from '../store-world/_useWorldStore';
 import { useStatsStore } from '../useStatsStore';
 import { activeStreakCount, onlineLog10, pomodoroMultiplier } from './online-progress.formulas';
 import { dragonStageForAge, furyBandFor } from './createPopulationOnlineSlice';
@@ -53,11 +44,12 @@ const offlineSpell = (index: number): Spell => {
 };
 
 const triggerDragonDeath = (reason: 'fury' | 'population') => {
-	const resources = useResourceStore.getState();
+	const world = useWorldStore.getState();
+	const resources = world.resourceStore;
 	const diedAt = new Date().toISOString();
 	const casualties = resources.resources.population.times(WORLD_CONSTANTS.dragon.supernovaPopulationLoss);
 	resources.addPopulation(casualties.neg(), casualties);
-	useDestructionStore.getState().applyDragonMassDestruction(resources.dragon.ageDays);
+	world.destructionStore.applyDragonMassDestruction(resources.dragon.ageDays);
 	resources.setDragon({ isAlive: false, deathReason: reason, lastDeathAt: diedAt });
 	usePrestigeStore.getState().setTitanomachyActive(false);
 	useStatsStore.getState().recordDragonDeath({ name: resources.dragon.name, ageDays: resources.dragon.ageDays, diedAt, respawnAt: 'Manual revival required' });
@@ -67,19 +59,22 @@ const triggerDragonDeath = (reason: 'fury' | 'population') => {
 export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOfflineProgress' | 'reset'> = (set, get) => ({
 	tickWorld: (seconds = 1) => {
 		if (!Number.isFinite(seconds) || seconds <= 0) return;
-		const options = useWorldOptionsStore.getState();
+		const world = useWorldStore.getState();
+		const options = world.optionsStore;
 		const mode = options.gameMode;
-		const resources = useResourceStore.getState();
-		const dragon = useDragonStore.getState();
-		const monuments = useMonumentsStore.getState();
+		const resources = world.resourceStore;
+		const dragon = world.dragonStore;
+		const special = useProductionSpecialStore.getState();
+		const monuments = special.monuments;
 		const production = useProductionStore.getState();
 		const prestige = usePrestigeStore.getState();
 
 		monuments.tickMonuments(seconds);
-		useGoalStore.getState().processMidnight();
-		const goals = useGoalStore.getState();
-		usePomodoroStore.getState().tick(seconds);
-		const pomodoro = usePomodoroStore.getState();
+		const productivity = useProductivityStore.getState();
+		productivity.goals.processMidnight();
+		const goals = productivity.goals;
+		productivity.pomodoro.tick(seconds);
+		const pomodoro = productivity.pomodoro;
 		const stats = useStatsStore.getState();
 
 		production.updateUnlockState({
@@ -104,7 +99,7 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 			: pomodoro.status === 'countdown-break' ? 'pomodoro-break'
 			: options.activity;
 		if (!dragon.dragonSpawned || !resources.dragon.isAlive) {
-			useSpellsStore.getState().tickSpells(seconds);
+			special.spells.tickSpells(seconds);
 			return;
 		}
 		if (resources.resources.population.lte(0)) {
@@ -115,16 +110,16 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		}
 
 		const deityLevels = getDeityLevels(production.levels);
-		const activeSpells: readonly ActiveSpell[] = useSpellsStore.getState().activeSpells;
+		const activeSpells: readonly ActiveSpell[] = special.spells.activeSpells;
 		const titanomachy = prestige.titanomachyActive && production.isEffectActive('chaos-awakened') && !prestige.tartarusActive && deityLevels.zeus > 0 && deityLevels.kronos > 0;
 		const titanomachyMultiplier = calculateTitanomachyMultiplier(titanomachy, resources.dragon.ageDays, WORLD_CONSTANTS.titanomachyProductionAdditivePerAge);
 		const furyThreshold = decimal(WORLD_CONSTANTS.dragon.baseFuryThreshold)
 			.plus((deityLevels.aphrodite ?? 0) * 25)
 			.plus(onlineLog10(decimalMax(resources.resources.chaosEnergy, 1)) * (deityLevels.theia ?? 0) * 20);
 		const maxFury = furyThreshold.times(WORLD_CONSTANTS.dragon.furyDeathMultiplier).times(WORLD_CONSTANTS.gameModes.maxFuryMultiplier[mode]);
-		const heartAtStart = useCrimsonHeartStore.getState().charge;
-		const nextHeart = useCrimsonHeartStore.getState().tick(activity, seconds);
-		const averageHeart = calculateAverageCrimsonHeartCharge(heartAtStart, nextHeart, seconds, useCrimsonHeartStore.getState().getChargeRate());
+		const heartAtStart = special.crimsonHeart.charge;
+		const nextHeart = special.crimsonHeart.tick(activity, seconds);
+		const averageHeart = calculateAverageCrimsonHeartCharge(heartAtStart, nextHeart, seconds, special.crimsonHeart.getChargeRate());
 		const extraGoals = Math.max(0, goals.incompleteHabits.length - 10) + Math.max(0, goals.incompleteTasks.length - 10);
 		const lateGoals = [...goals.incompleteHabits, ...goals.incompleteTasks].filter(goal => goal.dueAt && Date.parse(goal.dueAt) < Date.now()).length;
 		const rawFuryDelta = calculateFuryChange(furyRates[activity], WORLD_CONSTANTS.gameModes.furyMultiplier[mode], seconds, extraGoals + lateGoals * 4, titanomachyMultiplier);
@@ -148,7 +143,7 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		const heartMultiplier = productionBlocked ? 0 : averageHeart * titanomachyMultiplier;
 		const producerOutput = get().calculateProducerEnergy(seconds, heartMultiplier, activity);
 		const amplification = get().calculateAmplification();
-		const goalMultiplier = decimal(useGoalMultiplierStore.getState().getProductionMultiplier());
+		const goalMultiplier = decimal(production.goalMultiplierStore.getProductionMultiplier());
 		const otherMultipliers = get()
 			.calculateOtherEnergyMultipliers()
 			.times(pomodoroMultiplier(production.levels, activity, 'energy-boost', 'dual-boost', 'trio-boost'))
@@ -178,11 +173,11 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 			.times(seconds / (microQuarkGenerator.tickInterval ?? 100))
 			.times(heartMultiplier)
 			.times(goalMultiplier);
-		const shardBoostActive = activity === 'pomodoro' || ((activity === 'off-app' || activity === 'allowed-app') && useOffline.getState().activeBoostIds.includes('shard-boost'));
+		const shardBoostActive = activity === 'pomodoro' || ((activity === 'off-app' || activity === 'allowed-app') && useOfflineProgressStore.getState().activeBoostIds.includes('shard-boost'));
 		const shardBoost = shardBoostActive ? decimal(production.levels['shard-boost'] ?? 0).times(seconds / 3600) : decimal(0);
 		const kronos = prestige.tartarusActive ? 0 : (deityLevels.kronos ?? 0);
-		const goalMultipliers = useGoalMultiplierStore.getState();
-		const themisMultiplier = (deityLevels.themis ?? 0) > 0 ? decimal(goalMultipliers.gildedArchetypes.reduce((product, archetype) => product * goalMultipliers.getDarkEnergyMultiplier(archetype), 1)).sqrt() : decimal(1);
+		const goalMultipliers = production.goalMultiplierStore;
+		const themisMultiplier = (deityLevels.themis ?? 0) > 0 ? decimal(production.forgingStore.gildedGoalArchetypes.reduce((product, archetype) => product * goalMultipliers.getDarkEnergyMultiplier(archetype), 1)).sqrt() : decimal(1);
 		const chaosEnergy =
 			kronos ?
 				decimal(Math.max(0, onlineLog10(decimalMax(energy, 1))))
@@ -214,14 +209,14 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		});
 		const naturalPopulationDelta = nextPopulation.minus(resources.resources.population);
 		const naturalDeaths = decimal(0).max(naturalPopulationDelta.neg());
-		const hostileDeaths = usePopulationStore.getState().progressHostiles({
+		const hostileDeaths = world.populationStore.progressHostiles({
 			ticks: populationTicks,
 			furyBand,
 			populationMultiplier,
 			zombieLevel: Math.max(1, prestige.apocalypseLevels.reincarnation ?? 0),
 			cyborgLevel: Math.max(1, prestige.apocalypseLevels.invasion ?? 0),
-			zombieIncinerationEffect: useIncineratorStore.getState().getZombieEffect(),
-			cyborgIncinerationEffect: useIncineratorStore.getState().getCyborgEffect(),
+			zombieIncinerationEffect: special.incinerator.getZombieEffect(),
+			cyborgIncinerationEffect: special.incinerator.getCyborgEffect(),
 		});
 
 		resources.setResource('fury', nextFury);
@@ -237,16 +232,16 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		const previousAge = resources.dragon.ageDays;
 		const ageMultiplier = production.isEffectActive('fates-timer') || monuments.isMonumentActive('chronos') ? 2 : 1;
 		const ageDays = previousAge + (seconds * ageMultiplier * pomodoroMultiplier(production.levels, activity, 'age-boost').toNumber()) / WORLD_CONSTANTS.secondsPerDay;
-		const dragonDead = furyBand === 'supernova' || useResourceStore.getState().resources.population.lte(0);
+		const dragonDead = furyBand === 'supernova' || useWorldStore.getState().resourceStore.resources.population.lte(0);
 		resources.setDragon({ ageDays, stage: dragonStageForAge(ageDays), furyThreshold, maxFury });
 		if (dragonDead) {
 			triggerDragonDeath(furyBand === 'supernova' ? 'fury' : 'population');
 			resources.setResource('chaosEnergy', resources.resources.chaosEnergy.div(10));
 		}
 
-		useSpellsStore.getState().tickSpells(seconds);
-		useIncineratorStore.getState().tick(seconds);
-		stats.recordResources(useResourceStore.getState().resources);
+		special.spells.tickSpells(seconds);
+		special.incinerator.tick(seconds);
+		stats.recordResources(useWorldStore.getState().resourceStore.resources);
 		stats.refreshAchievements();
 		if (!reviveGraceActive) dragon.clearReviveGrace();
 		dragon.recordDragonAge(ageDays);
@@ -255,14 +250,15 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		set({ lastTickAt: new Date().toISOString() });
 	},
 	giveOfflineProgress: () => {
-		const offline = useOffline.getState();
+		const offline = useOfflineProgressStore.getState();
 		const progress = offline.consumeProgress();
 		if (!progress.totalSeconds) return 0;
 		if (progress.rewardSpellCount) {
-			const inventorySize = useSpellsStore.getState().spellInventory.length;
-			for (let index = 0; index < progress.rewardSpellCount; index += 1) useSpellsStore.getState().addSpell(offlineSpell(inventorySize + index));
+			const spells = useProductionSpecialStore.getState().spells;
+			const inventorySize = spells.spellInventory.length;
+			for (let index = 0; index < progress.rewardSpellCount; index += 1) spells.addSpell(offlineSpell(inventorySize + index));
 		}
-		const options = useWorldOptionsStore.getState();
+		const options = useWorldStore.getState().optionsStore;
 		const currentActivity = options.activity;
 		for (const segment of offline.getEnergyOfflineSegments(progress)) {
 			options.setActivity(segment.activity);

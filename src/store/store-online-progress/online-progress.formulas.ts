@@ -1,20 +1,21 @@
 import type { AppActivity } from '@/types/world.types';
 import { decimal } from '@/utils/decimal';
-import { useOffline } from '../store-offline-progress/_useOfflineProgressStore';
-import { useGoalStore } from '../store-productivity/createGoalSlice';
+import { useOfflineProgressStore } from '../store-offline-progress/_useOfflineProgressStore';
+import { useProductivityStore } from '../store-productivity/_useProductivityStore';
 
 export const onlineLog10 = (value: ReturnType<typeof decimal>) => (value.lte(0) ? 0 : Math.max(0, value.log10()));
 
 export const activeStreakCount = () =>
-	useGoalStore
+	useProductivityStore
 		.getState()
+		.goals
 		.incompleteHabits.filter(goal => goal.streakState === 'active')
 		.reduce((total, goal) => total + goal.streak, 0);
 
 export const pomodoroMultiplier = (levels: Record<string, number>, activity: AppActivity, ...ids: string[]) => {
 	const offline = activity === 'off-app' || activity === 'allowed-app';
 	if (activity !== 'pomodoro' && !offline) return decimal(1);
-	const selectedOfflineBoosts = useOffline.getState().activeBoostIds;
+	const selectedOfflineBoosts = useOfflineProgressStore.getState().activeBoostIds;
 	const eligibleIds = ids.filter(id => {
 		if (!offline) return true;
 		if (id === 'dual-boost') return selectedOfflineBoosts.length >= 2;
