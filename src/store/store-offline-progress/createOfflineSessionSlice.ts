@@ -1,4 +1,6 @@
 import { initialOfflineProgressState, type OfflineProgress, type OfflineProgressSlice } from './offline-progress.types';
+import { useStatsStore } from '../useStatsStore';
+import { useWorldStore } from '../store-world/_useWorldStore';
 
 const WEEK_SECONDS = 7 * 86_400;
 
@@ -18,14 +20,23 @@ const rewardSpellsForWeeks = (startingWeek: number, completedWeeks: number) => {
 	return completedWeeks + firstWeekBonus + secondWeekBonus;
 };
 
-export const createOfflineSessionSlice: OfflineProgressSlice<'setAppBlockingMode' | 'setBlockedApps' | 'setOfflineBoosts' | 'markBackgrounded' | 'recordUsage' | 'consumeProgress' | 'reset'> = (set, get) => ({
+export const createOfflineSessionSlice: OfflineProgressSlice<'setAppBlockingMode' | 'setBlockedApps' | 'setOfflineBoosts' | 'purchaseOfflineBoostSlot' | 'markBackgrounded' | 'recordUsage' | 'consumeProgress' | 'reset'> = (set, get) => ({
 	setAppBlockingMode: (mode, hardMode = false) => {
 		if (hardMode && mode === 'disabled') return false;
 		set({ appBlockingMode: mode });
 		return true;
 	},
 	setBlockedApps: apps => set({ blockedApps: [...new Set(apps.map(app => app.trim()).filter(Boolean))] }),
-	setOfflineBoosts: boostIds => set({ activeBoostIds: [...new Set(boostIds)] }),
+	setOfflineBoosts: boostIds => set(state => ({ activeBoostIds: [...new Set(boostIds)].slice(0, state.unlockedOfflineBoostSlots) })),
+	purchaseOfflineBoostSlot: () => {
+		const slot = get().unlockedOfflineBoostSlots;
+		const requirements = [{ hours: 25, shards: 25 }, { hours: 250, shards: 250 }, { hours: 2_500, shards: 500 }] as const;
+		const requirement = requirements[slot];
+		if (!requirement || useStatsStore.getState().pomodoroSeconds < requirement.hours * 3_600) return false;
+		if (!useWorldStore.getState().resourceStore.spendResource('shards', requirement.shards)) return false;
+		set({ unlockedOfflineBoostSlots: slot + 1 });
+		return true;
+	},
 	markBackgrounded: (timestamp = new Date()) => set({ lastBackgroundAt: timestamp.toISOString() }),
 	recordUsage: (kind, seconds) => {
 		if (!Number.isFinite(seconds) || seconds <= 0) return;

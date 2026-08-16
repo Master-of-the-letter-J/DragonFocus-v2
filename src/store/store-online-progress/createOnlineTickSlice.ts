@@ -65,16 +65,30 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		const resources = world.resourceStore;
 		const dragon = world.dragonStore;
 		const special = useProductionSpecialStore.getState();
+		special.blackMarket.refreshRewardedShardAdStacks();
 		const monuments = special.monuments;
 		const production = useProductionStore.getState();
 		const prestige = usePrestigeStore.getState();
-
-		monuments.tickMonuments(seconds);
 		const productivity = useProductivityStore.getState();
+		const pomodoro = productivity.pomodoro;
+		const pomodoroBoundary =
+			!pomodoro.isPaused && (pomodoro.status === 'countdown-active' || pomodoro.status === 'countdown-break') ? pomodoro.secondsRemaining : 0;
+		const timedBoundaries = [...Object.values(monuments.fuelSeconds), special.incinerator.fuelSeconds, pomodoroBoundary].filter(boundary => boundary > 0 && boundary < seconds);
+		if (timedBoundaries.length) {
+			const boundary = Math.min(...timedBoundaries);
+			get().tickWorld(boundary);
+			get().tickWorld(seconds - boundary);
+			return;
+		}
+
+		const activity: AppActivity =
+			pomodoro.status === 'countdown-active' || pomodoro.status === 'count-up' ? 'pomodoro'
+			: pomodoro.status === 'countdown-break' ? 'pomodoro-break'
+			: options.activity;
+
 		productivity.goals.processMidnight();
 		const goals = productivity.goals;
 		productivity.pomodoro.tick(seconds);
-		const pomodoro = productivity.pomodoro;
 		const stats = useStatsStore.getState();
 
 		production.updateUnlockState({
@@ -94,17 +108,18 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 			checkOutCompleted: stats.checkOuts > 0,
 		});
 
-		const activity: AppActivity =
-			pomodoro.status === 'countdown-active' || pomodoro.status === 'count-up' ? 'pomodoro'
-			: pomodoro.status === 'countdown-break' ? 'pomodoro-break'
-			: options.activity;
 		if (!dragon.dragonSpawned || !resources.dragon.isAlive) {
 			special.spells.tickSpells(seconds);
+			special.incinerator.tick(seconds);
+			monuments.tickMonuments(seconds);
 			return;
 		}
 		if (resources.resources.population.lte(0)) {
 			triggerDragonDeath('population');
 			dragon.clearReviveGrace();
+			special.spells.tickSpells(seconds);
+			special.incinerator.tick(seconds);
+			monuments.tickMonuments(seconds);
 			set({ lastTickAt: new Date().toISOString() });
 			return;
 		}
@@ -122,7 +137,7 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		const averageHeart = calculateAverageCrimsonHeartCharge(heartAtStart, nextHeart, seconds, special.crimsonHeart.getChargeRate());
 		const extraGoals = Math.max(0, goals.incompleteHabits.length - 10) + Math.max(0, goals.incompleteTasks.length - 10);
 		const lateGoals = [...goals.incompleteHabits, ...goals.incompleteTasks].filter(goal => goal.dueAt && Date.parse(goal.dueAt) < Date.now()).length;
-		const rawFuryDelta = calculateFuryChange(furyRates[activity], WORLD_CONSTANTS.gameModes.furyMultiplier[mode], seconds, extraGoals + lateGoals * 4, titanomachyMultiplier);
+		const rawFuryDelta = calculateFuryChange(furyRates[activity], WORLD_CONSTANTS.gameModes.furyMultiplier[mode], seconds, extraGoals + lateGoals * 4, titanomachyMultiplier).times(Math.max(1, averageHeart));
 		const calmSpellMultiplier = calculateTimedSpellMultiplier(activeSpells, 'furyReduction', seconds);
 		const furyDelta =
 			rawFuryDelta.lt(0) ?
@@ -139,7 +154,7 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		const shieldCap = Math.floor(furyThreshold.toNumber());
 		const nextShields = Math.min(shieldCap, Math.max(0, dragon.angerShields - shieldAbsorption.toNumber() + excessCalm.times(WORLD_CONSTANTS.dragon.angerShieldGainFromExcessCalm).toNumber()));
 		const furyBand = furyBandFor(nextFury, furyThreshold, maxFury);
-		const productionBlocked = furyBand === 'angry' || furyBand === 'critical' || furyBand === 'supernova' || mode === 'lock-in';
+		const productionBlocked = furyBand === 'angry' || furyBand === 'critical' || furyBand === 'supernova' || mode === 'lock-in' || activity === 'blocked-app';
 		const heartMultiplier = productionBlocked ? 0 : averageHeart * titanomachyMultiplier;
 		const producerOutput = get().calculateProducerEnergy(seconds, heartMultiplier, activity);
 		const amplification = get().calculateAmplification();
@@ -160,14 +175,16 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 			.times(heartMultiplier)
 			.times(goalMultiplier)
 			.times(decimal(2).pow(deityLevels.poseidon ?? 0))
-			.times(decimal(1).plus(resources.resources.chaosEnergy.sqrt().times(0.001 * (deityLevels.oceanus ?? 0))));
+			.times(decimal(1).plus(resources.resources.chaosEnergy.sqrt().times(0.001 * (deityLevels.oceanus ?? 0))))
+			.times(calculateTimedSpellMultiplier(activeSpells, 'darkEnergy', seconds));
 		const plasma = resources
 			.getNonGeneratedThisTranscension('plasma')
 			.times(((plasmaGenerator.percentPerLevel ?? 0) * (production.levels[plasmaGenerator.id] ?? 0) * seconds) / (plasmaGenerator.tickInterval ?? 100))
 			.times(heartMultiplier)
 			.times(goalMultiplier)
 			.times(decimal(2).pow(deityLevels.hades ?? 0))
-			.times(decimal(1).plus(resources.resources.chaosEnergy.sqrt().times(0.001 * (deityLevels.hyperion ?? 0))));
+			.times(decimal(1).plus(resources.resources.chaosEnergy.sqrt().times(0.001 * (deityLevels.hyperion ?? 0))))
+			.times(calculateTimedSpellMultiplier(activeSpells, 'plasma', seconds));
 		const microQuarks = decimal(microQuarkGenerator.flatPerLevel ?? 0)
 			.times(production.levels[microQuarkGenerator.id] ?? 0)
 			.times(seconds / (microQuarkGenerator.tickInterval ?? 100))
@@ -180,7 +197,7 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 		const themisMultiplier = (deityLevels.themis ?? 0) > 0 ? decimal(production.forgingStore.gildedGoalArchetypes.reduce((product, archetype) => product * goalMultipliers.getDarkEnergyMultiplier(archetype), 1)).sqrt() : decimal(1);
 		const chaosEnergy =
 			kronos ?
-				decimal(Math.max(0, onlineLog10(decimalMax(energy, 1))))
+				decimal(Math.max(0, onlineLog10(decimalMax(energy.div(seconds), 1))))
 					.div(86_400)
 					.times(decimal(4).pow(Math.max(0, kronos - 1)))
 					.times(titanomachy ? decimal(titanomachyMultiplier).pow(deityLevels.atlas ?? 0) : 1)
@@ -200,7 +217,7 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 			.times(decimal(1).plus(resources.resources.chaosEnergy.times(0.01 * (deityLevels.rhea ?? 0))))
 			.times(prestigePower);
 		const reviveGraceActive = Boolean(dragon.reviveGraceUntil && Date.parse(dragon.reviveGraceUntil) > Date.now());
-		const populationTicks = mode === 'lock-in' ? 0 : averageHeart * titanomachyMultiplier * (reviveGraceActive ? WORLD_CONSTANTS.dragon.revivePopulationMultiplier : 1) * pomodoroMultiplier(production.levels, activity, 'population-boost', 'trio-boost').toNumber() * seconds;
+		const populationTicks = mode === 'lock-in' || activity === 'blocked-app' ? 0 : averageHeart * titanomachyMultiplier * (reviveGraceActive ? WORLD_CONSTANTS.dragon.revivePopulationMultiplier : 1) * pomodoroMultiplier(production.levels, activity, 'population-boost', 'trio-boost').toNumber() * seconds;
 		const nextPopulation = get().calculatePopulationProgress({
 			initial: resources.resources.population,
 			ticks: populationTicks,
@@ -241,6 +258,7 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 
 		special.spells.tickSpells(seconds);
 		special.incinerator.tick(seconds);
+		monuments.tickMonuments(seconds);
 		stats.recordResources(useWorldStore.getState().resourceStore.resources);
 		stats.refreshAchievements();
 		if (!reviveGraceActive) dragon.clearReviveGrace();

@@ -1,3 +1,4 @@
+/** Route-specific presentation for the Lair route. */
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { StyleSheet } from 'react-native';
 
@@ -11,21 +12,24 @@ export const styles = StyleSheet.create({
 	dragonHalo: { position: 'absolute', width: 230, height: 230, borderRadius: 120, backgroundColor: colors.crimsonSoft, opacity: 0.65 },
 	dragonWrap: { width: '100%', height: 220 },
 	dragon: { width: '100%', height: '100%' },
+	dragonGlyph: { color: colors.gold, fontFamily: appFonts.black, fontSize: 140, textAlign: 'center', lineHeight: 210 },
+	clickFeedback: { position: 'absolute', top: 22, color: colors.gold, fontFamily: appFonts.bold, fontSize: 14 },
 	dragonName: { color: colors.ink, fontFamily: appFonts.black, fontSize: 23 },
 	dragonMeta: { color: colors.muted, fontFamily: appFonts.medium, fontSize: 11, textTransform: 'capitalize' },
 	itemList: { gap: space.sm },
 	itemCard: { padding: space.md },
 	itemRow: { flexDirection: 'row', gap: space.md, alignItems: 'center' },
+	itemRowReversed: { flexDirection: 'row-reverse' },
 	itemIcon: { width: 48, height: 48, borderRadius: radius.medium, backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
 	itemIconText: { color: colors.gold, fontSize: 22 },
-	itemCopy: { flex: 1, gap: 2 },
+	itemCopy: { flex: 1, minWidth: 0, gap: 2 },
 	itemLevel: { color: colors.crimsonBright, fontFamily: appFonts.bold, fontSize: 9, letterSpacing: 1 },
 	itemName: { color: colors.ink, fontFamily: appFonts.semibold, fontSize: 14, textTransform: 'capitalize' },
-	cost: { color: colors.gold, fontFamily: appFonts.medium, fontSize: 11 },
-	itemActions: { gap: 6, alignItems: 'stretch' },
+	metric: { color: colors.blue, fontFamily: appFonts.semibold, fontSize: 11, maxWidth: '100%' },
+	cost: { color: colors.gold, fontFamily: appFonts.medium, fontSize: 11, maxWidth: '100%' },
+	itemActions: { gap: 6, alignItems: 'stretch', flexShrink: 1, maxWidth: 132 },
 	heartNumber: { color: colors.crimsonBright, fontFamily: appFonts.black, fontSize: 30, textAlign: 'center' },
 	ability: { minHeight: 52, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space.md, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: space.sm },
 	prestigeNumber: { color: colors.gold, fontFamily: appFonts.black, fontSize: 31 },
 	monument: { flexDirection: 'row', gap: space.md, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.line, paddingTop: space.md },
 });
-

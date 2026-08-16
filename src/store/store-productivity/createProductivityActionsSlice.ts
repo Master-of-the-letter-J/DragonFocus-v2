@@ -4,6 +4,7 @@ export const createProductivityActionsSlice: ProductivitySlice<'resetProductivit
 	resetProductivity: () => {
 		get().goals.reset();
 		get().surveys.reset();
+		get().surveyPreferences.reset();
 		get().pomodoro.reset();
 	},
 });

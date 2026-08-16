@@ -29,11 +29,17 @@ export const FIXED_MARKET_BUNDLES: readonly FixedMarketBundle[] = [
 
 export const FIXED_MARKET_BUNDLE_BY_ID = Object.fromEntries(FIXED_MARKET_BUNDLES.map(bundle => [bundle.id, bundle])) as Record<FixedMarketBundleId, FixedMarketBundle>;
 
+export const REWARDED_SHARD_AD = {
+	shards: 5,
+	maxStacks: 3,
+	rechargeMs: 3 * 60 * 60 * 1_000,
+} as const;
+
 export const SHARD_PACKS = [
 	{ id: 'shards-099', storeProductId: 'shards_160', displayPriceUsd: '$0.99', shards: 160 },
 	{ id: 'shards-499', storeProductId: 'shards_1000', displayPriceUsd: '$4.99', shards: 1_000 },
 	{ id: 'shards-999', storeProductId: 'shards_2400', displayPriceUsd: '$9.99', shards: 2_400 },
-	{ id: 'shards-1999', storeProductId: 'shards_5000', displayPriceUsd: '$19.99', shards: 5_000 },
-	{ id: 'shards-4999', storeProductId: 'shards_13000', displayPriceUsd: '$49.99', shards: 13_000 },
-	{ id: 'shards-9999', storeProductId: 'shards_28000', displayPriceUsd: '$99.99', shards: 28_000 },
+	{ id: 'shards-1999', storeProductId: 'shards_5000', displayPriceUsd: '$19.99', shards: 5_000, badge: 'Recommended' },
+	{ id: 'shards-4999', storeProductId: 'shards_13000', displayPriceUsd: '$49.99', shards: 13_000, badge: 'Great Value' },
+	{ id: 'shards-9999', storeProductId: 'shards_28000', displayPriceUsd: '$99.99', shards: 28_000, badge: 'Best Value' },
 ] as const;

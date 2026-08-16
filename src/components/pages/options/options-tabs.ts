@@ -1,7 +1,8 @@
-export const OPTIONS_TABS = [
-	{ id: 'general', label: 'General & Game Modes' },
-	{ id: 'surveys', label: 'Survey & Goal Options' },
-] as const;
+/** Navigation metadata for the Options route. */
+export type OptionsTab = 'general' | 'surveys' | 'tutorial';
 
-export type OptionsTab = (typeof OPTIONS_TABS)[number]['id'];
-
+export const OPTIONS_TABS: readonly { id: OptionsTab; label: string }[] = [
+	{ id: 'general', label: '⚙ General & Game Modes' },
+	{ id: 'surveys', label: '☀ Check-In & Out' },
+	{ id: 'tutorial', label: '📖 Tutorial' },
+];

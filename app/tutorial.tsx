@@ -1,11 +1,12 @@
-import { styles } from '@/components/pages/tutorial/tutorial.styles';
 import { ActionButton, Card, PageIntro, SectionTitle, TabStrip, uiStyles } from '@/components/ui/DragonUI';
 import { TUTORIAL_CHAPTERS, type TutorialChapter } from '@/components/pages/tutorial/tutorial-chapters';
-import { SPELL_LOOTBOXES } from '@/data/world-data/spell-lootboxes';
+import { styles } from '@/components/pages/tutorial/tutorial.styles';
+import { SPELL_SNACKBOXES } from '@/data/world-data/spell-snackboxes';
 import { SPELL_SIZES } from '@/data/world-data/spells';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TutorialRoute() {
 	const [chapter, setChapter] = useState<TutorialChapter>('goals');
@@ -29,23 +30,23 @@ export default function TutorialRoute() {
 						</View>
 					))}
 				</Card>
-				{chapter === 'lootboxes' ?
-					<LootboxOdds />
+				{chapter === 'snackboxes' ?
+					<SnackboxOdds />
 				:	null}
 			</ScrollView>
 		</SafeAreaView>
 	);
 }
 
-function LootboxOdds() {
+function SnackboxOdds() {
 	return (
 		<>
 			<Card accent="crimson">
 				<SectionTitle title="How rolls work" detail="Randomized rewards have no guaranteed monetary value." />
-				<Text style={uiStyles.body}>A box chooses its roll count first. Every roll independently chooses a spell size from the applicable table, then chooses a spell type. The Impossible Lootbox awards ten identical spells per roll.</Text>
-				<Text style={uiStyles.body}>Up to three verified rewarded-ad claims per eight-hour window award a Basic Lootbox without spending Shards.</Text>
+				<Text style={uiStyles.body}>The Snackbox chooses its roll count first. Every roll independently chooses a spell size from the applicable table, then chooses a spell type.</Text>
+				<Text style={uiStyles.body}>You can hold three rewarded-ad charges. One charge returns every three real-time hours, including while offline, and each verified ad awards 5 Crimson Shards.</Text>
 			</Card>
-			{SPELL_LOOTBOXES.map(box => (
+			{SPELL_SNACKBOXES.map(box => (
 				<Card key={box.id}>
 					<SectionTitle title={box.name} detail={`${box.shardCost.toLocaleString()} Shards · ${box.minimumRolls}–${box.maximumRolls} rolls${box.identicalRollBundle > 1 ? ` · ${box.identicalRollBundle} identical spells per roll` : ''}`} />
 					<OddsTable title="Standard chances" weights={box.standardWeights} />
@@ -56,7 +57,7 @@ function LootboxOdds() {
 	);
 }
 
-function OddsTable({ title, weights }: { title: string; weights: (typeof SPELL_LOOTBOXES)[number]['standardWeights'] }) {
+function OddsTable({ title, weights }: { title: string; weights: (typeof SPELL_SNACKBOXES)[number]['standardWeights'] }) {
 	return (
 		<View style={styles.oddsGroup}>
 			<Text style={styles.oddsTitle}>{title}</Text>

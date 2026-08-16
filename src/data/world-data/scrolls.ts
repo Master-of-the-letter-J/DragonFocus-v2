@@ -15,14 +15,14 @@ export const SCROLL_TABS: readonly ScrollTabDefinition[] = [
 		name: 'The Dragon Pact',
 		milestone: 2,
 		description: 'Account synchronization and optional premium benefits.',
-		info: ['Sign-up reward: 50 Crimson Shards.', 'Unlimited Habit and To-Do goals.', 'Much higher Crimson and Quark Challenge limits.', 'Crimson Heart charge and maximums: x2.', 'Goal shard cap: x5.', 'Black Market rewards: +10%.', 'Pricing B: $1.99 monthly, $4.99 yearly, or $14.99 lifetime.'],
+		info: ['Sign-up reward: 50 Crimson Shards.', 'Unlimited Habit and To-Do goals.', 'Much higher Crimson and Quark Challenge limits.', 'Crimson Heart charge and maximums: x2.', 'Harvest Dark Energy: x2.', 'Harvest base XP and Fury reduction: x2.', 'Goal shard cap: x5.', 'Black Market rewards, including shard packs: +10%.', 'Pricing B: $1.99 monthly, $4.99 yearly, or $14.99 lifetime.'],
 	},
 	{
 		id: 'black-market',
 		name: 'Black Market & Spells',
 		milestone: 3,
-		description: 'Fixed purchases, spell crafting, selling, and disclosed loot-box odds.',
-		info: ['Fixed purchases are never randomized; lootbox odds are disclosed separately.', 'Spell size, effect, duration, and sell value are always visible.', 'Same-type, same-size spell activations stack duration.', 'Hectate unlocks Divine I and Divine II exclusively in lootboxes and improves their odds.'],
+		description: 'Fixed purchases, spell crafting, selling, and disclosed Snackbox odds.',
+		info: ['Fixed purchases are never randomized; Snackbox odds are disclosed separately.', 'Hold up to three ad charges; one returns every three real-time hours and each verified ad awards 5 Shards.', 'Spell size, effect, duration, and sell value are always visible.', 'Same-type, same-size spell activations stack duration.', 'Hectate unlocks Divine I and Divine II exclusively in Snackboxes and improves their odds.'],
 	},
 	{
 		id: 'chronicles',

@@ -1,3 +1,4 @@
+/** Route-specific presentation for focused sessions. */
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { StyleSheet } from 'react-native';
 
@@ -23,4 +24,3 @@ export const styles = StyleSheet.create({
 	actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.sm },
 	adjustments: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.sm },
 });
-

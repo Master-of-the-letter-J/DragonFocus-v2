@@ -48,7 +48,7 @@ export interface SurveyStoreState {
 	activeSession: SurveySession;
 	archived: SurveySession[];
 	completeCheckIn: (response?: Partial<SurveyResponse>) => void;
-	completeCheckOut: (response?: Partial<SurveyResponse>) => boolean;
+	completeCheckOut: (response?: Partial<SurveyResponse>, allowWithoutCheckIn?: boolean) => boolean;
 	resetDaily: () => void;
 	getSuggestions: (type: GoalType, count?: number) => Suggestion[];
 	getAdvice: (count?: number) => string[];
@@ -92,8 +92,8 @@ export const createSurveySlice: ProductivitySlice<'surveys'> = (set, get) => {
 					activeSession: { ...state.activeSession, checkIn: { mood, goalsAdded: response?.goalsAdded ?? state.activeSession.checkIn?.goalsAdded ?? 0, goalsHarvested: 0, completedAt } },
 				}));
 			},
-			completeCheckOut: response => {
-				if (!getSlice().checkOutAvailable || getSlice().checkOutCompleted) return false;
+			completeCheckOut: (response, allowWithoutCheckIn = false) => {
+				if ((!getSlice().checkOutAvailable && !allowWithoutCheckIn) || getSlice().checkOutCompleted) return false;
 				const completedAt = new Date().toISOString();
 				const mood = response?.mood;
 				if (mood) useWorldStore.getState().resourceStore.addResource('fury', -moodFuryReduction(mood));

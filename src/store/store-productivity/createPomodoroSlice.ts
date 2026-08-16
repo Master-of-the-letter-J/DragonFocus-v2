@@ -83,10 +83,8 @@ const applySessionReward = (session: CompletedPomodoroSession) => {
 
 /** Starting a focus session immediately applies the currently unlocked Heart charge. */
 const fillCrimsonHeartForPomodoro = () => {
-	const levels = useProductionStore.getState().levels;
-	const activation = levels['crimson-activation'] ? 1 : 0;
-	const awakening = levels['crimson-pomodoro-awakening'] ?? 0;
-	useProductionSpecialStore.getState().crimsonHeart.setCharge(Math.min(100, awakening * 100 || activation));
+	const heart = useProductionSpecialStore.getState().crimsonHeart;
+	heart.setCharge(heart.getTargetCharge('pomodoro'));
 };
 
 export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = (set, get) => {

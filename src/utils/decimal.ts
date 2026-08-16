@@ -22,12 +22,24 @@ export const deserializeDecimal = (value: unknown, fallback: DecimalSource = 0) 
 	return decimal(fallback);
 };
 
-export const formatDecimal = (value: DecimalSource, digits = 2) => {
+export type DecimalFormatStyle = 'short' | 'expanded-short' | 'long' | 'scientific';
+let defaultDecimalFormat: DecimalFormatStyle = 'expanded-short';
+export const setDefaultDecimalFormat = (style: DecimalFormatStyle) => {
+	defaultDecimalFormat = style;
+};
+
+export const formatDecimal = (value: DecimalSource, digits = 2, style: DecimalFormatStyle = defaultDecimalFormat) => {
 	const amount = decimal(value);
 	if (amount.eq(0)) return '0';
-	if (amount.exponent < 6 && amount.exponent > -4) {
+	if (style === 'scientific') return amount.toPrecision(Math.max(2, digits + 1)).replace('+', '');
+	if (amount.abs().lt(1_000) && amount.exponent > -4) {
 		return amount.toNumber().toLocaleString('en-US', { maximumFractionDigits: digits });
 	}
-
-	return amount.toPrecision(Math.max(2, digits + 1)).replace('+', '');
+	const shortUnits = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+	const longUnits = ['', 'Thousand', 'Million', 'Billion', 'Trillion', 'Quadrillion', 'Quintillion', 'Sextillion', 'Septillion', 'Octillion', 'Nonillion', 'Decillion'];
+	const naturalIndex = Math.floor(amount.abs().exponent / 3);
+	const unitIndex = style === 'expanded-short' ? Math.max(1, naturalIndex - 1) : naturalIndex;
+	if (unitIndex >= shortUnits.length) return amount.toPrecision(Math.max(2, digits + 1)).replace('+', '');
+	const scaled = amount.div(decimal(10).pow(unitIndex * 3)).toNumber().toLocaleString('en-US', { maximumFractionDigits: digits });
+	return style === 'long' ? `${scaled} ${longUnits[unitIndex]}` : `${scaled}${style === 'expanded-short' ? ' ' : ''}${shortUnits[unitIndex]}`;
 };

@@ -286,7 +286,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 			{ resource: 'shards', base: '30', growthFactor: 1 },
 		],
 		unlocks: [
-			{ metric: 'owned-item', itemId: 'crimson-activation', amount: 1 },
+			{ metric: 'owned-item', itemId: 'crimson-heart-boost', amount: 1 },
 			{ metric: 'effect', effectId: 'primordial-sanctuary' },
 		],
 		maxLevel: 1,
@@ -305,7 +305,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 			{ resource: 'shards', base: '30', growthFactor: 1 },
 		],
 		unlocks: [
-			{ metric: 'owned-item', itemId: 'crimson-activation', amount: 1 },
+			{ metric: 'owned-item', itemId: 'crimson-off-phone-tempo', amount: 1 },
 			{ metric: 'effect', effectId: 'primordial-sanctuary' },
 		],
 		maxLevel: 1,
@@ -324,7 +324,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 			{ resource: 'shards', base: '3', growthFactor: 1 },
 		],
 		unlocks: [
-			{ metric: 'owned-item', itemId: 'crimson-activation', amount: 1 },
+			{ metric: 'owned-item', itemId: 'crimson-pomodoro-tempo', amount: 1 },
 			{ metric: 'effect', effectId: 'primordial-sanctuary' },
 		],
 		persistsOnArmageddon: true,
@@ -342,7 +342,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 			{ resource: 'shards', base: '3', growthFactor: 1 },
 		],
 		unlocks: [
-			{ metric: 'owned-item', itemId: 'crimson-activation', amount: 1 },
+			{ metric: 'owned-item', itemId: 'crimson-offline-awakening', amount: 1 },
 			{ metric: 'effect', effectId: 'primordial-sanctuary' },
 		],
 		persistsOnArmageddon: true,

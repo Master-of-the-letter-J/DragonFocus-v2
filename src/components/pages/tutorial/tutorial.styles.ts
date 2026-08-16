@@ -1,3 +1,4 @@
+/** Route-specific presentation for the Tutorial route. */
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { StyleSheet } from 'react-native';
 
@@ -17,4 +18,3 @@ export const styles = StyleSheet.create({
 	oddsName: { color: colors.ink, fontFamily: appFonts.medium, fontSize: 11 },
 	oddsValue: { color: colors.gold, fontFamily: appFonts.mono, fontSize: 11 },
 });
-

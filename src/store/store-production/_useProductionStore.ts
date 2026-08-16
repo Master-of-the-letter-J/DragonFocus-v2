@@ -31,6 +31,7 @@ export interface ProductionStoreState {
 	getCost: (itemId: string, quantity?: number) => ReturnType<typeof decimal>;
 	getCosts: (itemId: string, quantity?: number) => Partial<Record<SpendableResourceId, ReturnType<typeof decimal>>>;
 	canPurchase: (itemId: string) => boolean;
+	isItemUnlocked: (itemId: string) => boolean;
 	setLevel: (itemId: string, level: number) => void;
 	clearItems: (itemIds: readonly string[]) => void;
 	updateUnlockState: (changes: Partial<ProductionUnlockState>) => void;
@@ -223,6 +224,11 @@ const createProductionSlice: StateCreator<ProductionStoreState, [], [], Producti
 	canPurchase: itemId => {
 		const item = PRODUCTION_BY_ID[itemId];
 		if (!item || (item.maxLevel !== undefined && (get().levels[itemId] ?? 0) >= item.maxLevel)) return false;
+		return get().isItemUnlocked(itemId);
+	},
+	isItemUnlocked: itemId => {
+		const item = PRODUCTION_BY_ID[itemId];
+		if (!item) return false;
 		if (item.kind === 'amplifier' && !get().amplifierStore.isUnlocked(itemId)) return false;
 		if (item.kind === 'deity' && item.id !== 'zeus' && (get().levels.zeus ?? 0) === 0) return false;
 		if (item.kind === 'titan' && item.id !== 'kronos' && (get().levels.kronos ?? 0) === 0) return false;

@@ -1,13 +1,17 @@
 import type { Goal, GoalInput, GoalReward, HabitGoal, SpecialHabitGoal, SpecialHabitKind, TaskGoal } from '@/types/goals.types';
 import type { GameMode } from '@/types/world.types';
 import { decimal } from '@/utils/decimal';
-import { useProductionStore } from '../store-production/_useProductionStore';
+import { getDeityLevels, useProductionStore } from '../store-production/_useProductionStore';
+import { useProductionSpecialStore } from '../store-production-special/_useProductionSpecialStore';
 import { useWorldStore } from '../store-world/_useWorldStore';
 import { useStatsStore } from '../useStatsStore';
 import { DRAGON_PACT_BENEFITS } from '@/data/premium-data/premium-catalog';
 import { usePremiumStore } from '../store-premium/_usePremiumStore';
 import { scopeNestedSlice } from '../nested-slice';
 import type { ProductivitySlice, ProductivityStoreState } from './_useProductivityStore';
+import { calculateSpellMultiplier, calculateTitanomachyMultiplier } from '@/data/calculations/formula-resources';
+import { WORLD_CONSTANTS } from '@/constants/world.constants';
+import { usePrestigeStore } from '../store-prestige/_usePrestigeStore';
 
 const dayEnd = (from = new Date()) => {
 	const date = new Date(from);
@@ -34,7 +38,7 @@ const PREMIUM_SHARD_HARVEST_CAP = FREE_SHARD_HARVEST_CAP * DRAGON_PACT_BENEFITS.
 const specialHabitDetails: Record<SpecialHabitKind, { title: string; description: string; minimumPomodoroSeconds?: number }> = {
 	'survey-check-in': { title: 'Complete Check-In Survey', description: 'Complete today’s check-in survey.' },
 	'survey-check-out': { title: 'Complete Check-Out Survey', description: 'Complete today’s check-out survey.' },
-	'pomodoro-30-seconds': { title: 'Focus for 30 Seconds', description: 'Complete a focused Pomodoro session lasting at least 30 seconds.', minimumPomodoroSeconds: 30 },
+	'pomodoro-30-seconds': { title: 'Complete a Pomodoro Session', description: 'Complete a focused Pomodoro session of any duration.', minimumPomodoroSeconds: 1 },
 	'pomodoro-15-minutes': { title: 'Focus for 15 Minutes', description: 'Complete a focused Pomodoro session lasting at least 15 minutes.', minimumPomodoroSeconds: 15 * 60 },
 	'pomodoro-30-minutes': { title: 'Focus for 30 Minutes', description: 'Complete a focused Pomodoro session lasting at least 30 minutes.', minimumPomodoroSeconds: 30 * 60 },
 	'pomodoro-45-minutes': { title: 'Focus for 45 Minutes', description: 'Complete a focused Pomodoro session lasting at least 45 minutes.', minimumPomodoroSeconds: 45 * 60 },
@@ -78,7 +82,23 @@ const isSpecialHabitReady = (goal: SpecialHabitGoal, productivity: ProductivityS
 	const minimumSeconds = specialHabitDetails[goal.specialKind].minimumPomodoroSeconds ?? Number.POSITIVE_INFINITY;
 	return productivity.pomodoro.lastCompletedSessionSeconds >= minimumSeconds;
 };
-const calculateGoalReward = (goal: Goal, mode: GameMode, artemisLevel = 0, aphroditeLevel = 0, goalMultiplier = decimal(1), rewardMultiplier = 1): GoalReward => {
+interface HarvestPremiumMultipliers {
+	xp: number;
+	darkEnergy: number;
+	furyReduction: number;
+}
+
+const STANDARD_HARVEST_MULTIPLIERS: HarvestPremiumMultipliers = { xp: 1, darkEnergy: 1, furyReduction: 1 };
+
+const calculateGoalReward = (
+	goal: Goal,
+	mode: GameMode,
+	artemisLevel = 0,
+	aphroditeLevel = 0,
+	goalMultiplier = decimal(1),
+	darkEnergyEffectMultiplier = 1,
+	premiumMultipliers: HarvestPremiumMultipliers = STANDARD_HARVEST_MULTIPLIERS,
+): GoalReward => {
 	if (goal.rewardBlocked) return { xp: '0', darkEnergy: '0', shards: '0', furyReduction: '0', quarks: '0' };
 
 	const difficulty = difficultyXp[goal.difficulty];
@@ -96,8 +116,9 @@ const calculateGoalReward = (goal: Goal, mode: GameMode, artemisLevel = 0, aphro
 	const hasQuantumChallenge = goal.challenge === 'quantum' || goal.challenge === 'both';
 	const challengeMultiplier = hasCrimsonChallenge ? 2 : 1;
 	const artemisMultiplier = artemisLevel > 0 ? decimal(2).times(decimal(1.5).pow(artemisLevel - 1)) : decimal(1);
-	const totalXp = decimal(baseXp).times(challengeMultiplier).times(artemisMultiplier).times(rewardMultiplier);
-	const darkEnergy = totalXp.times(goalMultiplier).times(harvestMultiplier[mode]);
+	const rawXp = decimal(baseXp).times(challengeMultiplier).times(artemisMultiplier);
+	const totalXp = rawXp.times(premiumMultipliers.xp);
+	const darkEnergy = rawXp.times(goalMultiplier).times(harvestMultiplier[mode]).times(darkEnergyEffectMultiplier).times(premiumMultipliers.darkEnergy);
 	const baseShards =
 		goal.type === 'special-habit' ?
 			goal.specialKind.startsWith('survey-') ?
@@ -115,16 +136,14 @@ const calculateGoalReward = (goal: Goal, mode: GameMode, artemisLevel = 0, aphro
 	return {
 		xp: totalXp.toString(),
 		darkEnergy: darkEnergy.toString(),
-		shards: decimal(baseShards + bonusShards)
-			.times(rewardMultiplier)
-			.toString(),
+		shards: decimal(baseShards + bonusShards).toString(),
 		furyReduction: decimal(baseXp)
 			.times(challengeMultiplier)
 			.times(1 + aphroditeLevel * 0.1)
-			.times(rewardMultiplier)
+			.times(premiumMultipliers.furyReduction)
 			.toString(),
 		// Crimson doubles every non-shard reward, including a Quantum challenge's Quarks.
-		quarks: hasQuantumChallenge && !late ? decimal(quantumBonus).times(challengeMultiplier).times(rewardMultiplier).toString() : '0',
+		quarks: hasQuantumChallenge && !late ? decimal(quantumBonus).times(challengeMultiplier).toString() : '0',
 	};
 };
 
@@ -388,13 +407,36 @@ export const createGoalSlice: ProductivitySlice<'goals'> = (set, get) => {
 
 				const production = useProductionStore.getState();
 				const levels = production.levels;
+				const deityLevels = getDeityLevels(levels);
 				const premium = usePremiumStore.getState().isPremium;
-				const rewardMultiplier = premium ? DRAGON_PACT_BENEFITS.harvestMultiplier : 1;
-				const baseReward = calculateGoalReward(goal, mode, levels.artemis ?? 0, levels.aphrodite ?? 0, decimal(1), rewardMultiplier);
+				const premiumMultipliers: HarvestPremiumMultipliers =
+					premium ?
+						{
+							xp: DRAGON_PACT_BENEFITS.harvestXpMultiplier,
+							darkEnergy: DRAGON_PACT_BENEFITS.harvestDarkEnergyMultiplier,
+							furyReduction: DRAGON_PACT_BENEFITS.harvestFuryReductionMultiplier,
+						}
+					: STANDARD_HARVEST_MULTIPLIERS;
+				const baseReward = calculateGoalReward(goal, mode, deityLevels.artemis ?? 0, deityLevels.aphrodite ?? 0, decimal(1), 1, premiumMultipliers);
 				const goalMultipliers = useProductionStore.getState().goalMultiplierStore;
 				goalMultipliers.recordXp(goal.archetype, decimal(baseReward.xp).toNumber());
 				const goalMultiplier = decimal(goalMultipliers.getDarkEnergyMultiplier(goal.archetype));
-				const reward = calculateGoalReward(goal, mode, levels.artemis ?? 0, levels.aphrodite ?? 0, goalMultiplier, rewardMultiplier);
+				const prestige = usePrestigeStore.getState();
+				const dragonAge = useWorldStore.getState().resourceStore.dragon.ageDays;
+				const titanomachyHarvestMultiplier = calculateTitanomachyMultiplier(prestige.titanomachyActive, dragonAge, WORLD_CONSTANTS.titanomachyProductionAdditivePerAge);
+				const activeSpells = useProductionSpecialStore.getState().spells.activeSpells;
+				const poseidonHarvestMultiplier = decimal(2).pow(deityLevels.poseidon ?? 0).toNumber();
+				const darkEnergySpellMultiplier = calculateSpellMultiplier(activeSpells, 'darkEnergy').toNumber();
+				const calmSpellMultiplier = calculateSpellMultiplier(activeSpells, 'furyReduction').toNumber();
+				const reward = calculateGoalReward(
+					goal,
+					mode,
+					deityLevels.artemis ?? 0,
+					deityLevels.aphrodite ?? 0,
+					goalMultiplier,
+					titanomachyHarvestMultiplier * poseidonHarvestMultiplier * darkEnergySpellMultiplier,
+					{ ...premiumMultipliers, furyReduction: premiumMultipliers.furyReduction * calmSpellMultiplier },
+				);
 				const state = getSlice();
 				const harvestDate = today();
 				const shardsHarvestedToday = state.shardHarvestDate === harvestDate ? state.shardsHarvestedToday : 0;

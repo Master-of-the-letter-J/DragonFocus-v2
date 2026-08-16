@@ -1,12 +1,14 @@
-import { styles } from '@/components/pages/archives/archives.styles';
 import { DragonAppScreen } from '@/components/app-shell/DragonAppScreen';
 import { ARCHIVE_TABS, type ArchiveTab } from '@/components/pages/archives/archive-tabs';
+import { styles } from '@/components/pages/archives/archives.styles';
 import { ActionButton, Card, EmptyState, PageIntro, ProgressBar, SectionTitle, TabStrip, uiStyles } from '@/components/ui/DragonUI';
 import { dragonTheme } from '@/constants/dragon-theme';
-import { ACHIEVEMENTS } from '@/data/statistics-data/achievements';
 import { DRAGON_PACT_BENEFITS, DRAGON_PACT_PRODUCTS } from '@/data/premium-data/premium-catalog';
-import { FIXED_MARKET_BUNDLES, SHARD_PACKS } from '@/data/world-data/black-market';
-import { SPELL_LOOTBOXES } from '@/data/world-data/spell-lootboxes';
+import { ACHIEVEMENTS } from '@/data/statistics-data/achievements';
+import { FIXED_MARKET_BUNDLES, REWARDED_SHARD_AD, SHARD_PACKS } from '@/data/world-data/black-market';
+import { GOVERNMENT_LOGS } from '@/data/world-data/government-logs';
+import { milestoneForEnergy } from '@/data/world-data/milestones';
+import { SPELL_SNACKBOXES } from '@/data/world-data/spell-snackboxes';
 import { usePremiumStore } from '@/store/store-premium/_usePremiumStore';
 import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
 import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
@@ -22,10 +24,15 @@ const { colors } = dragonTheme;
 export default function ArchivesRoute() {
 	const params = useLocalSearchParams<{ tab?: ArchiveTab }>();
 	const [tab, setTab] = useState<ArchiveTab>(ARCHIVE_TABS.some(candidate => candidate.id === params.tab) ? params.tab! : 'pact');
+	const totalEnergy = useWorldStore(state => state.resourceStore.totalAllTime.energy);
+	const milestone = milestoneForEnergy(totalEnergy);
+	const requiredMilestone = ARCHIVE_TABS.find(candidate => candidate.id === tab)?.unlockMilestone ?? 0;
 	return (
 		<DragonAppScreen title="The Scrolls" panel="spells" effects={tab === 'market'}>
-			<TabStrip tabs={ARCHIVE_TABS} value={tab} onChange={setTab} />
-			{tab === 'pact' ?
+			<TabStrip tabs={ARCHIVE_TABS} value={tab} onChange={setTab} milestone={milestone} />
+			{milestone < requiredMilestone ?
+				<EmptyState icon="🔒" title="Archive sealed" description={`Unlocks at Milestone ${requiredMilestone}.`} />
+			: tab === 'pact' ?
 				<DragonPact />
 			: tab === 'market' ?
 				<BlackMarket />
@@ -50,8 +57,29 @@ function DragonPact() {
 	);
 	return (
 		<>
-			<PageIntro eyebrow="Account & premium" title="The Dragon Pact" description="A single verified entitlement follows an authenticated profile across supported devices." />
+			<PageIntro eyebrow="Account & premium" title="The Dragon Pact" description="Sign in to carry verified progress across supported devices. A backend-verified first signup awards 50 Crimson Shards." />
 			<Card accent={premium.isPremium ? 'gold' : 'crimson'}>
+				<SectionTitle title="Account" detail={premium.account ? `Signed in as ${premium.account.displayName ?? premium.account.email ?? premium.account.userId}` : 'Google, Apple, and username/password login require the configured backend.'} />
+				{premium.account ?
+					<ActionButton tone="quiet" label="Sign out" onPress={premium.signOut} />
+				:	<View style={uiStyles.wrap}>
+						<ActionButton disabled label="Continue with Google" />
+						<ActionButton disabled tone="quiet" label="Username & password" />
+						<ActionButton disabled tone="quiet" label="Continue with Apple" />
+					</View>
+				}
+				<Text style={uiStyles.muted}>Account actions stay disabled until server keys, redirect URLs, and verified profile endpoints are configured.</Text>
+			</Card>
+			<Card>
+				<SectionTitle title="Benefits" />
+				{['Unlimited Habit and To-Do goals', `Up to ${DRAGON_PACT_BENEFITS.challengeLimitPerType} Quark and Crimson challenges per type`, 'Double Crimson Heart charge and maximum', 'Double Dark Energy from every Harvest', 'Double base XP and Fury reduction from every Harvest', 'Five-times goal shard cap', '10% bonus value throughout the Black Market, including shard packs'].map(benefit => (
+					<View key={benefit} style={styles.benefit}>
+						<Text style={styles.check}>✦</Text>
+						<Text style={uiStyles.body}>{benefit}</Text>
+					</View>
+				))}
+			</Card>
+			<Card>
 				<SectionTitle title={premium.isPremium ? 'Pact active' : 'Choose your pact'} detail={premium.isPremium ? `${premium.plan ?? 'verified'} access${premium.expiresAt ? ` · renews ${new Date(premium.expiresAt).toLocaleDateString()}` : ''}` : 'Storefront prices replace these display estimates at checkout.'} />
 				{!premium.isPremium ?
 					<View style={styles.planGrid}>
@@ -64,27 +92,7 @@ function DragonPact() {
 						))}
 					</View>
 				:	null}
-			</Card>
-			<Card>
-				<SectionTitle title="Benefits" />
-				{['Unlimited Habit and To-Do goals', `Up to ${DRAGON_PACT_BENEFITS.challengeLimitPerType} Quark and Crimson challenges per type`, 'Double Crimson Heart charge and maximum', 'Double complete Harvest rewards', 'Five-times goal shard cap', '10% more Black Market value'].map(benefit => (
-					<View key={benefit} style={styles.benefit}>
-						<Text style={styles.check}>✦</Text>
-						<Text style={uiStyles.body}>{benefit}</Text>
-					</View>
-				))}
-			</Card>
-			<Card>
-				<SectionTitle title="Account" detail={premium.account ? `Signed in as ${premium.account.displayName ?? premium.account.email ?? premium.account.userId}` : 'Google, Apple, and password authentication require the configured backend.'} />
-				{premium.account ?
-					<ActionButton tone="quiet" label="Sign out" onPress={premium.signOut} />
-				:	<View style={uiStyles.wrap}>
-						<ActionButton disabled label="Continue with Google" />
-						<ActionButton disabled tone="quiet" label="Email & password" />
-						<ActionButton disabled tone="quiet" label="Continue with Apple" />
-					</View>
-				}
-				<Text style={uiStyles.muted}>Buttons remain disabled until server keys, redirect URLs, and verified entitlement webhooks are configured.</Text>
+				<Text style={uiStyles.muted}>Pricing B: $1.99 monthly · $4.99 yearly · $14.99 permanent.</Text>
 			</Card>
 		</>
 	);
@@ -94,11 +102,12 @@ function BlackMarket() {
 	const [subtab, setSubtab] = useState<'magic' | 'shards'>('magic');
 	const shards = useWorldStore(state => state.resourceStore.resources.shards);
 	const buyBundle = useProductionSpecialStore(state => state.blackMarket.purchaseFixedBundle);
-	const openBox = useProductionSpecialStore(state => state.spells.openLootbox);
-	const remainingAds = useProductionSpecialStore(state => state.spells.getRewardedAdClaimsRemaining());
+	const openSnackbox = useProductionSpecialStore(state => state.spells.openSnackbox);
+	const remainingAds = useProductionSpecialStore(state => state.blackMarket.rewardedShardAdStacks);
+
 	return (
 		<>
-			<PageIntro eyebrow="Shards & scrolls" title="Black Market" description="Trade Crimson Shards for fixed resources or randomized spell scrolls. Odds are shown in each box's detail." />
+			<PageIntro eyebrow="Shards & scrolls" title="Black Market" description="Trade Crimson Shards for fixed resources or open the single randomized Dragon Snackbox. Its exact odds are always shown." />
 			<TabStrip
 				tabs={[
 					{ id: 'magic', label: 'Magic Spells' },
@@ -108,27 +117,32 @@ function BlackMarket() {
 				onChange={setSubtab}
 			/>
 			<Card accent="gold">
-				<SectionTitle title={`${formatDecimal(shards)} Crimson Shards`} detail={subtab === 'magic' ? `${remainingAds} rewarded Basic boxes remain in the current window.` : 'Real-money deliveries require server verification.'} />
+				<SectionTitle title={`${formatDecimal(shards)} Crimson Shards`} detail={subtab === 'magic' ? 'Snackbox odds are shown before every purchase.' : `${remainingAds}/${REWARDED_SHARD_AD.maxStacks} ad charges · one returns every three real-time hours.`} />
 			</Card>
 			{subtab === 'magic' ?
 				<>
 					<View style={styles.marketGrid}>
-						{SPELL_LOOTBOXES.map(box => (
+						{SPELL_SNACKBOXES.map(box => (
 							<Card key={box.id}>
-								<SectionTitle title={`${box.name} Lootbox`} detail={`${box.minimumRolls}–${box.maximumRolls} rolls · ${box.shardCost} shards`} />
+								<SectionTitle title={box.name} detail={`${box.minimumRolls}–${box.maximumRolls} rolls · ${box.shardCost} shards`} />
 								<Text style={uiStyles.muted}>
 									Standard odds:{' '}
 									{Object.entries(box.standardWeights)
 										.map(([size, weight]) => `S${size} ${weight}%`)
 										.join(' · ')}
 								</Text>
-								<ActionButton label={`Open for ${box.shardCost}`} onPress={() => openBox(box.id)} />
+								<ActionButton label={`Open Snackbox for ${box.shardCost} ◆`} onPress={() => openSnackbox(box.id)} />
 							</Card>
 						))}
 					</View>
 					<Text style={styles.disclosure}>Randomized rewards • Exact probabilities displayed • No guaranteed monetary value</Text>
 				</>
 			:	<>
+					<Card accent="gold">
+						<SectionTitle title="Watch an ad" detail={`${remainingAds}/${REWARDED_SHARD_AD.maxStacks} charges available · refills online or offline`} />
+						<Text style={styles.planPrice}>+{REWARDED_SHARD_AD.shards} ◆</Text>
+						<ActionButton disabled label={remainingAds > 0 ? 'Ad provider required' : 'Next charge in under 3 hours'} />
+					</Card>
 					<View style={styles.marketGrid}>
 						{FIXED_MARKET_BUNDLES.map(bundle => (
 							<Card key={bundle.id}>
@@ -144,6 +158,7 @@ function BlackMarket() {
 							<View key={pack.id} style={styles.plan}>
 								<Text style={styles.planPeriod}>{pack.shards.toLocaleString()} shards</Text>
 								<Text style={styles.planPrice}>{pack.displayPriceUsd}</Text>
+								{'badge' in pack ? <Text style={uiStyles.muted}>{pack.badge}</Text> : null}
 								<ActionButton compact disabled label="Store required" />
 							</View>
 						))}
@@ -189,6 +204,7 @@ function Chronicles() {
 
 function Records() {
 	const stats = useStatsStore();
+	const milestone = milestoneForEnergy(useWorldStore(state => state.resourceStore.totalAllTime.energy));
 	const [subtab, setSubtab] = useState<'achievements' | 'statistics' | 'graveyard'>('achievements');
 	return (
 		<>
@@ -197,15 +213,18 @@ function Records() {
 				tabs={[
 					{ id: 'achievements', label: 'Achievements' },
 					{ id: 'statistics', label: 'Statistics' },
-					{ id: 'graveyard', label: 'Dragon Graveyard' },
+					{ id: 'graveyard', label: 'Dragon Graveyard', unlockMilestone: 3 },
 				]}
 				value={subtab}
 				onChange={setSubtab}
+				milestone={milestone}
 			/>
 			{subtab === 'achievements' ?
 				<View style={styles.achievementGrid}>
 					{ACHIEVEMENTS.map(achievement => {
 						const unlocked = stats.unlockedAchievementIds.includes(achievement.id);
+						const metric = stats.metricValue(achievement.metric);
+						const progress = typeof metric === 'number' ? metric : metric.toNumber();
 						return (
 							<View key={achievement.id} style={[styles.achievement, unlocked && styles.achievementUnlocked]}>
 								<Text style={styles.achievementIcon}>{unlocked ? '✦' : '◇'}</Text>
@@ -214,6 +233,9 @@ function Records() {
 								</Text>
 								<Text numberOfLines={3} style={uiStyles.muted}>
 									{achievement.description}
+								</Text>
+								<Text style={uiStyles.muted}>
+									{Math.min(progress, achievement.target).toLocaleString()} / {achievement.target.toLocaleString()} · +{achievement.shards} ◆
 								</Text>
 							</View>
 						);
@@ -254,6 +276,9 @@ function Records() {
 
 function SecretLogs() {
 	const unlocked = useStatsStore(state => state.unlockedAchievementIds.length);
+	const totalEnergy = useWorldStore(state => state.resourceStore.totalAllTime.energy);
+	const milestone = milestoneForEnergy(totalEnergy);
+	const logs = GOVERNMENT_LOGS.filter(log => milestone >= log.milestone);
 	return (
 		<>
 			<PageIntro eyebrow="Government archive" title="Secret Logs" description="Milestones and rare achievements decrypt fragments of the hidden record." />
@@ -261,7 +286,15 @@ function SecretLogs() {
 				<SectionTitle title="Clearance status" detail={`${unlocked} achievements recognized`} />
 				<ProgressBar value={Math.min(100, unlocked * 5)} color={colors.violet} />
 			</Card>
-			<EmptyState icon="⌾" title="Encrypted" description="Secret log content will appear as its linked milestone and achievement definitions are authored." />
+			{logs.map(log => (
+				<Card key={log.id} accent="violet">
+					<SectionTitle title={`⌾ ${log.title}`} detail={`Declassified at Milestone ${log.milestone}`} />
+					<Text style={uiStyles.body}>{log.body}</Text>
+				</Card>
+			))}
+			{!logs.length ?
+				<EmptyState icon="⌾" title="Encrypted" description="Reach milestones and secret achievements to decrypt the archive." />
+			:	null}
 		</>
 	);
 }

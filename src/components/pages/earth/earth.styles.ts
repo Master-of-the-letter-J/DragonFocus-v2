@@ -1,3 +1,4 @@
+/** Route-specific presentation for the Earth route. */
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { StyleSheet } from 'react-native';
 
@@ -15,6 +16,8 @@ export const styles = StyleSheet.create({
 	orbitInner: { position: 'absolute', left: 26, top: -3, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold },
 	earthGlow: { width: 230, height: 230, borderRadius: 130, backgroundColor: '#142A3A', shadowColor: colors.blue, shadowOpacity: 0.5, shadowRadius: 30, shadowOffset: { width: 0, height: 0 }, elevation: 10 },
 	earthImage: { width: '100%', height: '100%' },
+	earthGlyph: { color: colors.blue, fontFamily: appFonts.black, fontSize: 150, textAlign: 'center', lineHeight: 220 },
+	clickFeedback: { position: 'absolute', top: 30, color: colors.gold, fontFamily: appFonts.bold, fontSize: 14 },
 	tapHint: { color: colors.muted, fontFamily: appFonts.medium, fontSize: 11, marginTop: 13 },
 	surveyRow: { flexDirection: 'row', gap: space.sm },
 	heartCard: { alignItems: 'center', paddingVertical: 28 },
@@ -29,4 +32,3 @@ export const styles = StyleSheet.create({
 	statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: space.lg },
 	hoardValue: { color: colors.ink, fontFamily: appFonts.bold, fontSize: 18 },
 });
-

@@ -6,10 +6,12 @@ import { useProductionStore } from '../store-production/_useProductionStore';
 import { DRAGON_PACT_BENEFITS } from '@/data/premium-data/premium-catalog';
 import { usePremiumStore } from '../store-premium/_usePremiumStore';
 import { useWorldStore } from '../store-world/_useWorldStore';
+import { useDevelopmentStore } from '../store-development/_useDevelopmentStore';
 
 export interface CrimsonHeartStoreState {
 	charge: number;
 	getMaximumCharge: () => number;
+	getTargetCharge: (activity: AppActivity) => number;
 	getChargeRate: () => number;
 	setCharge: (charge: number) => void;
 	tick: (activity: AppActivity, seconds: number) => number;
@@ -25,25 +27,35 @@ const heartScale = () => {
 	return difficulty * premium;
 };
 
-const maximumCharge = () => 100 * heartScale();
-
-const crimsonHeartTarget = (activity: AppActivity) => {
+const rawHeartTargets = () => {
 	const levels = useProductionStore.getState().levels;
 	const activation = (levels['crimson-activation'] ?? 0) * 0.1;
 	const heartBoost = levels['crimson-heart-boost'] ?? 0;
-	const baseCharge = activation + heartBoost;
-	const offline = baseCharge + (levels['crimson-offline-awakening'] ?? 0);
+	const onApp = activation + heartBoost;
+	const offline = onApp + (levels['crimson-offline-awakening'] ?? 0);
 	const offPhone = offline * (levels['crimson-off-phone-tempo'] ? 2 : 1);
-	const awakening = levels['crimson-pomodoro-awakening'] ?? 0;
-	const pomodoro = baseCharge * (levels['crimson-pomodoro-tempo'] ? 10 : 1) + awakening * 10;
+	const pomodoroBase = 100 + (levels['crimson-pomodoro-awakening'] ?? 0) * 10;
+	const pomodoro = pomodoroBase * (levels['crimson-pomodoro-tempo'] ? 10 : 1);
+	return { onApp, offline, offPhone, pomodoro, pomodoroBreak: pomodoro / 2 };
+};
+
+const maximumCharge = () => {
+	const targets = rawHeartTargets();
+	return Math.max(targets.onApp, targets.offline, targets.offPhone, targets.pomodoro, targets.pomodoroBreak) * heartScale();
+};
+
+const crimsonHeartTarget = (activity: AppActivity) => {
+	const cheats = useDevelopmentStore.getState().temporaryCheats;
+	if (__DEV__ && activity === 'idle' && cheats.enabled && cheats.crimsonHeartOnAppPercent !== undefined) return maximumCharge() * (cheats.crimsonHeartOnAppPercent / 100);
+	const targets = rawHeartTargets();
 
 	const target =
 		activity === 'blocked-app' ? 0
-		: activity === 'pomodoro' ? Math.min(100, pomodoro)
-		: activity === 'pomodoro-break' ? Math.min(50, pomodoro / 2)
-		: activity === 'off-app' ? Math.min(100, offPhone)
-		: activity === 'allowed-app' ? offline
-		: baseCharge;
+		: activity === 'pomodoro' ? targets.pomodoro
+		: activity === 'pomodoro-break' ? targets.pomodoroBreak
+		: activity === 'off-app' ? targets.offPhone
+		: activity === 'allowed-app' ? targets.offline
+		: targets.onApp;
 	return target * heartScale();
 };
 
@@ -55,6 +67,7 @@ export const createCrimsonHeartSlice: ProductionSpecialSlice<'crimsonHeart'> = (
 		crimsonHeart: {
 			...initialState(),
 			getMaximumCharge: maximumCharge,
+			getTargetCharge: crimsonHeartTarget,
 			getChargeRate: () => WORLD_CONSTANTS.crimsonHeartRatePerSecond * heartScale(),
 			setCharge: charge => setSlice({ charge: Math.max(0, Math.min(maximumCharge(), charge)) }),
 			tick: (activity, seconds) => {

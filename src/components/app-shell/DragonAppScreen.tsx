@@ -1,15 +1,22 @@
 import { EffectsPanel } from '@/components/app-shell/EffectsPanel';
 import { SecondaryPanel, type PanelMode } from '@/components/app-shell/SecondaryPanel';
+import { SpellBackpack } from '@/components/app-shell/SpellBackpack';
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
+import { milestoneForEnergy } from '@/data/world-data/milestones';
+import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
+import { useAppStore } from '@/store/useAppStore';
 import { formatDecimal } from '@/utils/decimal';
 import { router } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInDown, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
 
 const { colors, radius, space } = dragonTheme;
+const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
+const BACKGROUNDS = { nexus: colors.canvas, ember: '#1C0C0D', void: '#090713' } as const;
 
 const menuItems = [
 	['Check-in survey', '/check-in-survey'],
@@ -18,7 +25,7 @@ const menuItems = [
 	['View account', '/(_tabs)/archives?tab=pact'],
 	['Game modes', '/(_tabs)/options?tab=general'],
 	['Tutorial', '/tutorial'],
-	['Black market', '/(_tabs)/archives?tab=market'],
+	['Snackbox market', '/(_tabs)/archives?tab=market'],
 ] as const;
 
 const panelChoices: { id: PanelMode; label: string }[] = [
@@ -32,11 +39,37 @@ const panelChoices: { id: PanelMode; label: string }[] = [
 
 export function DragonAppScreen({ title, panel, effects = false, children, scrollProps }: PropsWithChildren<{ title: string; panel: PanelMode; effects?: boolean; scrollProps?: ScrollViewProps }>) {
 	const shards = useWorldStore(state => state.resourceStore.resources.shards);
+	const totalEnergy = useWorldStore(state => state.resourceStore.totalAllTime.energy);
+	const spellCount = useProductionSpecialStore(state => state.spells.spellInventory.length);
+	const backgroundStyle = useAppStore(state => state.backgroundStyle);
+	const brightness = useAppStore(state => state.brightness);
+	const weatherEffects = useAppStore(state => state.weatherEffects);
+	const spellsUnlocked = milestoneForEnergy(totalEnergy) >= 3;
+	const tremor = useSharedValue(0);
+	const brightnessPulse = useSharedValue(0);
+	useEffect(() => {
+		if (weatherEffects.tremors) tremor.value = withRepeat(withSequence(withTiming(-1, { duration: 90 }), withTiming(1, { duration: 90 }), withTiming(0, { duration: 90 })), -1);
+		else {
+			cancelAnimation(tremor);
+			tremor.value = 0;
+		}
+		return () => cancelAnimation(tremor);
+	}, [tremor, weatherEffects.tremors]);
+	useEffect(() => {
+		if (weatherEffects.brightness) brightnessPulse.value = withRepeat(withSequence(withTiming(0.06, { duration: 1_800 }), withTiming(0, { duration: 1_800 })), -1);
+		else {
+			cancelAnimation(brightnessPulse);
+			brightnessPulse.value = 0;
+		}
+		return () => cancelAnimation(brightnessPulse);
+	}, [brightnessPulse, weatherEffects.brightness]);
+	const tremorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tremor.value }] }));
+	const brightnessOverlayStyle = useAnimatedStyle(() => ({ opacity: Math.abs(brightness - 1) * 0.22 + brightnessPulse.value }));
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [panelOpen, setPanelOpen] = useState(false);
 	const [panelMode, setPanelMode] = useState(panel);
 	return (
-		<SafeAreaView style={styles.safe}>
+		<AnimatedSafeAreaView style={[styles.safe, { backgroundColor: BACKGROUNDS[backgroundStyle] }, tremorStyle]}>
 			<Animated.View entering={FadeIn.duration(250)} style={styles.header}>
 				<Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={() => setMenuOpen(true)} style={styles.iconButton}>
 					<Text style={styles.icon}>☰</Text>
@@ -49,13 +82,14 @@ export function DragonAppScreen({ title, panel, effects = false, children, scrol
 						<Text style={styles.shardMark}>◆</Text>
 						<Text style={styles.shardValue}>{formatDecimal(shards)}</Text>
 					</View>
+					{spellsUnlocked || spellCount > 0 ? <SpellBackpack /> : null}
 					<Pressable accessibilityRole="button" accessibilityLabel="Change information panel" onPress={() => setPanelOpen(true)} style={styles.iconButton}>
 						<Text style={styles.panelIcon}>◫</Text>
 					</Pressable>
 				</View>
 			</Animated.View>
 			<SecondaryPanel mode={panelMode} onPress={() => setPanelOpen(true)} />
-			{effects ?
+			{spellsUnlocked || effects ?
 				<EffectsPanel />
 			:	null}
 			<ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} {...scrollProps} contentContainerStyle={[styles.content, scrollProps?.contentContainerStyle]}>
@@ -91,7 +125,9 @@ export function DragonAppScreen({ title, panel, effects = false, children, scrol
 					</Pressable>
 				))}
 			</MenuModal>
-		</SafeAreaView>
+			{weatherEffects.rain ? <Text pointerEvents="none" accessibilityElementsHidden style={styles.rain}>· ︙ · ︙ · ︙ · ︙ · ︙ ·{`\n`}︙ · ︙ · ︙ · ︙ · ︙{`\n`}· ︙ · ︙ · ︙ · ︙ ·{`\n`}︙ · ︙ · ︙ · ︙ · ︙</Text> : null}
+			{brightness !== 1 || weatherEffects.brightness ? <Animated.View pointerEvents="none" style={[styles.brightnessOverlay, { backgroundColor: brightness > 1 || weatherEffects.brightness ? '#FFF4D7' : '#000' }, brightnessOverlayStyle]} /> : null}
+		</AnimatedSafeAreaView>
 	);
 }
 
@@ -135,4 +171,6 @@ const styles = StyleSheet.create({
 	menuRowSelected: { backgroundColor: colors.crimsonSoft },
 	menuLabel: { color: colors.ink, fontFamily: appFonts.medium, fontSize: 14 },
 	chevron: { color: colors.gold, fontSize: 20 },
+	rain: { position: 'absolute', zIndex: 20, top: 52, left: 0, right: 0, bottom: 0, color: '#A8CBFF55', fontSize: 34, lineHeight: 78, letterSpacing: 18, textAlign: 'center' },
+	brightnessOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 21 },
 });

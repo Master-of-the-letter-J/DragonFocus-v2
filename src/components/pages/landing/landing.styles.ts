@@ -1,3 +1,4 @@
+/** Route-specific presentation for the landing route. */
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { StyleSheet } from 'react-native';
 
@@ -17,4 +18,3 @@ export const styles = StyleSheet.create({
 	rightDoor: { right: 0, borderLeftWidth: 2 },
 	doorLine: { position: 'absolute', top: '10%', bottom: '10%', width: 1, backgroundColor: '#70434A', right: 24 },
 });
-

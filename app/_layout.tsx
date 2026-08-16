@@ -23,8 +23,8 @@ export default function RootLayout() {
 				<Stack.Screen name="index" />
 				<Stack.Screen name="landing" />
 				<Stack.Screen name="(_tabs)" />
-				<Stack.Screen name="check-in-survey" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
-				<Stack.Screen name="check-out-survey" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+				<Stack.Screen name="(surveys)/check-in-survey" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+				<Stack.Screen name="(surveys)/check-out-survey" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
 				<Stack.Screen name="focus-session" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
 				<Stack.Screen name="tutorial" options={{ presentation: 'modal' }} />
 			</Stack>

@@ -104,10 +104,11 @@ export const createRespecSlice: ProductionSlice<'respecStore'> = (set, get) => {
 			}
 			case 'boost-upgrades':
 				completed = refundAndClear(
-					itemsMatching(item => item.kind === 'pomodoro-boost', production),
-					['darkEnergy', 'plasma'],
+					itemsMatching(item => item.kind === 'pomodoro-boost' || item.id.startsWith('crimson-'), production),
+					['energy', 'darkEnergy', 'plasma', 'anomaly', 'shards'],
 					production,
 				);
+				if (completed) useProductionSpecialStore.getState().crimsonHeart.setCharge(0);
 				break;
 			case 'primordial-monuments':
 				completed = FUELABLE_MONUMENTS_HAVE_PROGRESS();

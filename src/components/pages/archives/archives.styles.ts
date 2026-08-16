@@ -1,3 +1,4 @@
+/** Route-specific presentation for the Archives route. */
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { StyleSheet } from 'react-native';
 
@@ -24,4 +25,3 @@ export const styles = StyleSheet.create({
 	metricLabel: { color: colors.muted, fontFamily: appFonts.medium, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 },
 	statLarge: { color: colors.ink, fontFamily: appFonts.black, fontSize: 26 },
 });
-

@@ -139,8 +139,8 @@ export const createConvertorSlice: ProductionSpecialSlice<'convertor'> = (set, g
 				const hasThreeOfEveryMegaType = requiredMegaTypes.every(type => selected.filter(spell => spell.spellType === type).length === 3);
 				const sameSize = selected.every(spell => spell.size === first.size && !spell.mega);
 				const nextSize = first.size + 1;
-				const nextSizeIsLootboxExclusive = nextSize === 5 || nextSize === 6;
-				const twoOfSame = selected.length === 2 && sameType && first.size < 8 && !nextSizeIsLootboxExclusive && (Boolean(first.mega) || requiredMegaTypes.includes(first.spellType));
+				const nextSizeIsSnackboxExclusive = nextSize === 5 || nextSize === 6;
+				const twoOfSame = selected.length === 2 && sameType && first.size < 8 && !nextSizeIsSnackboxExclusive && (Boolean(first.mega) || requiredMegaTypes.includes(first.spellType));
 				const allOfSameSize = selected.length === requiredMegaTypes.length * 3 && hasThreeOfEveryMegaType && sameSize && first.size !== 5 && first.size !== 6;
 				if ((!twoOfSame && !allOfSameSize) || !spend('quarks', 1)) return false;
 

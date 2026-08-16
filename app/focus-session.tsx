@@ -1,5 +1,5 @@
-import { styles } from '@/components/pages/focus/focus-session.styles';
 import { ActionButton, Card, Chip, ProgressBar } from '@/components/ui/DragonUI';
+import { styles } from '@/components/pages/focus/focus-session.styles';
 import { dragonTheme } from '@/constants/dragon-theme';
 import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
 import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';

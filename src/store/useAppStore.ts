@@ -11,6 +11,7 @@ import { useOfflineProgressStore } from './store-offline-progress/_useOfflinePro
 import { useOnlineProgressStore } from './store-online-progress/_useOnlineProgressStore';
 import { useStatsStore } from './useStatsStore';
 import { usePremiumStore } from './store-premium/_usePremiumStore';
+import { useDevelopmentStore } from './store-development/_useDevelopmentStore';
 
 /**
  * A single discoverability point for each domain-level Zustand store.
@@ -30,7 +31,7 @@ export const appStoreSlices = {
 export type AppStoreSlices = typeof appStoreSlices;
 
 export interface AppStoreState {
-	version: 4;
+	version: 5;
 	hasEntered: boolean;
 	startedAt?: string;
 	theme: 'system' | 'light' | 'dark';
@@ -40,8 +41,13 @@ export interface AppStoreState {
 	brightness: number;
 	requireDailyCheckIn: boolean;
 	reverseItemLayout: boolean;
+	backgroundStyle: 'nexus' | 'ember' | 'void';
+	dragonCosmetic: 'classic' | 'ember' | 'astral';
+	weatherEffects: { rain: boolean; tremors: boolean; brightness: boolean };
+	noSpritesMode: boolean;
 	numberFormat: NumberFormatStyle;
 	lastOpenedAt: string;
+	seenGovernmentLogIds: string[];
 	slices: AppStoreSlices;
 	setTheme: (theme: AppStoreState['theme']) => void;
 	setAutoHarvest: (enabled: boolean) => void;
@@ -50,8 +56,13 @@ export interface AppStoreState {
 	setBrightness: (brightness: number) => void;
 	setRequireDailyCheckIn: (required: boolean) => void;
 	setReverseItemLayout: (reversed: boolean) => void;
+	setBackgroundStyle: (background: AppStoreState['backgroundStyle']) => void;
+	setDragonCosmetic: (cosmetic: AppStoreState['dragonCosmetic']) => void;
+	setWeatherEffect: (effect: keyof AppStoreState['weatherEffects'], enabled: boolean) => void;
+	setNoSpritesMode: (enabled: boolean) => void;
 	setNumberFormat: (format: NumberFormatStyle) => void;
 	markOpened: () => void;
+	dismissGovernmentLog: (id: string) => void;
 	startGame: () => void;
 	resetEverything: () => Promise<void>;
 }
@@ -96,8 +107,13 @@ const createAppPreferencesSlice: AppSlice<
 	| 'brightness'
 	| 'requireDailyCheckIn'
 	| 'reverseItemLayout'
+	| 'backgroundStyle'
+	| 'dragonCosmetic'
+	| 'weatherEffects'
+	| 'noSpritesMode'
 	| 'numberFormat'
 	| 'lastOpenedAt'
+	| 'seenGovernmentLogIds'
 	| 'slices'
 	| 'setTheme'
 	| 'setAutoHarvest'
@@ -106,11 +122,16 @@ const createAppPreferencesSlice: AppSlice<
 	| 'setBrightness'
 	| 'setRequireDailyCheckIn'
 	| 'setReverseItemLayout'
+	| 'setBackgroundStyle'
+	| 'setDragonCosmetic'
+	| 'setWeatherEffect'
+	| 'setNoSpritesMode'
 	| 'setNumberFormat'
 	| 'markOpened'
+	| 'dismissGovernmentLog'
 	| 'startGame'
 > = set => ({
-	version: 4,
+	version: 5,
 	hasEntered: false,
 	startedAt: undefined,
 	theme: 'system',
@@ -120,8 +141,13 @@ const createAppPreferencesSlice: AppSlice<
 	brightness: 1,
 	requireDailyCheckIn: true,
 	reverseItemLayout: false,
-	numberFormat: 'short',
+	backgroundStyle: 'nexus',
+	dragonCosmetic: 'classic',
+	weatherEffects: { rain: false, tremors: false, brightness: false },
+	noSpritesMode: false,
+	numberFormat: 'expanded-short',
 	lastOpenedAt: new Date().toISOString(),
+	seenGovernmentLogIds: [],
 	slices: appStoreSlices,
 	setTheme: theme => set({ theme }),
 	setAutoHarvest: autoHarvest => set({ autoHarvest }),
@@ -130,13 +156,15 @@ const createAppPreferencesSlice: AppSlice<
 	setBrightness: brightness => set({ brightness: Math.max(0.5, Math.min(1.2, brightness)) }),
 	setRequireDailyCheckIn: requireDailyCheckIn => set({ requireDailyCheckIn }),
 	setReverseItemLayout: reverseItemLayout => set({ reverseItemLayout }),
+	setBackgroundStyle: backgroundStyle => set({ backgroundStyle }),
+	setDragonCosmetic: dragonCosmetic => set({ dragonCosmetic }),
+	setWeatherEffect: (effect, enabled) => set(state => ({ weatherEffects: { ...state.weatherEffects, [effect]: enabled } })),
+	setNoSpritesMode: noSpritesMode => set({ noSpritesMode }),
 	setNumberFormat: numberFormat => set({ numberFormat }),
 	markOpened: () => set({ lastOpenedAt: new Date().toISOString() }),
+	dismissGovernmentLog: id => set(state => ({ seenGovernmentLogIds: [...new Set([...state.seenGovernmentLogIds, id])] })),
 	startGame: () => {
 		const now = new Date().toISOString();
-		if (!useWorldStore.getState().dragonStore.dragonSpawned) {
-			useWorldStore.getState().dragonStore.spawnDragon();
-		}
 		set(state => ({ hasEntered: true, startedAt: state.startedAt ?? now, lastOpenedAt: now }));
 	},
 });
@@ -152,8 +180,9 @@ const createAppResetSlice: AppSlice<'resetEverything'> = set => ({
 		useOnlineProgressStore.getState().reset();
 		useStatsStore.getState().reset();
 		usePremiumStore.getState().reset();
+		useDevelopmentStore.getState().temporaryCheats.reset();
 		await AsyncStorage.multiRemove(storageKeys);
-		set({ version: 4, hasEntered: false, startedAt: undefined, theme: 'system', autoHarvest: false, soundEffectsVolume: 0.8, musicVolume: 0.5, brightness: 1, requireDailyCheckIn: true, reverseItemLayout: false, numberFormat: 'short', lastOpenedAt: new Date().toISOString() });
+		set({ version: 5, hasEntered: false, startedAt: undefined, theme: 'system', autoHarvest: false, soundEffectsVolume: 0.8, musicVolume: 0.5, brightness: 1, requireDailyCheckIn: true, reverseItemLayout: false, backgroundStyle: 'nexus', dragonCosmetic: 'classic', weatherEffects: { rain: false, tremors: false, brightness: false }, noSpritesMode: false, numberFormat: 'expanded-short', lastOpenedAt: new Date().toISOString(), seenGovernmentLogIds: [] });
 	},
 });
 

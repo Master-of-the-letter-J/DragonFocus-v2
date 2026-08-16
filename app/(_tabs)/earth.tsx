@@ -1,30 +1,33 @@
-import { styles } from '@/components/pages/earth/earth.styles';
+import { ActionButton, Card, Chip, PageIntro, ProgressBar, SectionTitle, TabStrip, uiStyles } from '@/components/ui/DragonUI';
 import { DragonAppScreen } from '@/components/app-shell/DragonAppScreen';
 import { EARTH_TABS, type EarthTab } from '@/components/pages/earth/earth-tabs';
+import { styles } from '@/components/pages/earth/earth.styles';
 import { GoalBoard } from '@/components/pages/earth/GoalBoard';
-import { ActionButton, Card, Chip, PageIntro, ProgressBar, SectionTitle, TabStrip, uiStyles } from '@/components/ui/DragonUI';
 import { dragonTheme } from '@/constants/dragon-theme';
-import { MILESTONES, milestoneForEnergy } from '@/data/world-data/milestones';
 import { POMODORO_BOOSTS } from '@/data/productivity-data/pomodoro-boosts';
+import { MILESTONES, milestoneForEnergy } from '@/data/world-data/milestones';
 import { useOfflineProgressStore } from '@/store/store-offline-progress/_useOfflineProgressStore';
 import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
+import { useProductionStore } from '@/store/store-production/_useProductionStore';
 import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
+import { useAppStore } from '@/store/useAppStore';
 import { formatDecimal } from '@/utils/decimal';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInUp, FadeOutUp, useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import { useShallow } from 'zustand/react/shallow';
 
 const { colors } = dragonTheme;
 
 export default function EarthRoute() {
 	const params = useLocalSearchParams<{ tab?: EarthTab }>();
+	const milestone = useProductionStore(state => state.unlockState.milestone);
 	const [tab, setTab] = useState<EarthTab>(EARTH_TABS.some(candidate => candidate.id === params.tab) ? params.tab! : 'command');
 	return (
 		<DragonAppScreen title="The Earth" panel={tab === 'active' || tab === 'finished' ? 'goals' : 'dragon'} effects={tab === 'command'}>
-			<TabStrip tabs={EARTH_TABS} value={tab} onChange={setTab} />
+			<TabStrip tabs={EARTH_TABS} value={tab} onChange={setTab} milestone={milestone} />
 			{tab === 'command' ?
 				<CommandCenter />
 			: tab === 'active' ?
@@ -39,6 +42,10 @@ export default function EarthRoute() {
 }
 
 function CommandCenter() {
+	const numberFormat = useAppStore(state => state.numberFormat);
+	const noSpritesMode = useAppStore(state => state.noSpritesMode);
+	const requireCheckIn = useAppStore(state => state.requireDailyCheckIn);
+	const heroFormat = numberFormat === 'scientific' ? 'scientific' : 'long';
 	const resources = useWorldStore(state => state.resourceStore.resources);
 	const deaths = useWorldStore(state => state.resourceStore.populationDead);
 	const hostiles = useWorldStore(state => state.populationStore);
@@ -47,11 +54,13 @@ function CommandCenter() {
 	const currentMilestone = milestoneForEnergy(useWorldStore.getState().resourceStore.totalAllTime.energy);
 	const next = MILESTONES.find(milestone => milestone.id > currentMilestone);
 	const pulse = useSharedValue(1);
+	const [clickFeedback, setClickFeedback] = useState(0);
 	const earthStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 	const tapEarth = () => {
 		// eslint-disable-next-line react-hooks/immutability
 		pulse.value = withSequence(withSpring(0.94), withSpring(1.03), withSpring(1));
 		clickWorld();
+		setClickFeedback(current => current + 1);
 	};
 	return (
 		<>
@@ -60,16 +69,16 @@ function CommandCenter() {
 				<View style={styles.populationRow}>
 					<View>
 						<Text style={styles.metricLabel}>Population</Text>
-						<Text style={styles.population}>{formatDecimal(resources.population)}</Text>
+						<Text style={styles.population}>{formatDecimal(resources.population, 2, heroFormat)}</Text>
 					</View>
 					<View style={styles.deathColumn}>
 						<Text style={styles.metricLabel}>Recorded deaths</Text>
-						<Text style={styles.deaths}>{formatDecimal(deaths)}</Text>
+						<Text style={styles.deaths}>{formatDecimal(deaths, 2, heroFormat)}</Text>
 					</View>
 				</View>
 				{hostiles.zombies.gt(0) || hostiles.cyborgs.gt(0) ?
 					<Text style={uiStyles.muted}>
-						Zombies {formatDecimal(hostiles.zombies)} · Cyborgs {formatDecimal(hostiles.cyborgs)}
+						Zombies {formatDecimal(hostiles.zombies, 2, heroFormat)} · Cyborgs {formatDecimal(hostiles.cyborgs, 2, heroFormat)}
 					</Text>
 				:	null}
 			</Card>
@@ -78,8 +87,13 @@ function CommandCenter() {
 					<View style={styles.orbitInner} />
 				</View>
 				<Animated.View style={[styles.earthGlow, earthStyle]}>
-					<Image source={require('@/assets/images/other/planet-earth-test.png')} resizeMode="contain" style={styles.earthImage} />
+					{noSpritesMode ? <Text style={styles.earthGlyph}>◎</Text> : <Image source={require('@/assets/images/other/planet-earth-test.png')} resizeMode="contain" style={styles.earthImage} />}
 				</Animated.View>
+				{clickFeedback ?
+					<Animated.Text key={clickFeedback} entering={FadeInUp} exiting={FadeOutUp} style={styles.clickFeedback}>
+						+1 Energy · +0.01 Fury
+					</Animated.Text>
+				:	null}
 				<Text style={styles.tapHint}>Tap the Earth for growth</Text>
 			</Pressable>
 			<Card accent="gold">
@@ -90,7 +104,7 @@ function CommandCenter() {
 			</Card>
 			<View style={styles.surveyRow}>
 				<ActionButton label={survey.checkInCompleted ? 'Checked in' : 'Check in'} disabled={survey.checkInCompleted} onPress={() => router.push('/check-in-survey')} />
-				<ActionButton tone="secondary" label={survey.checkOutCompleted ? 'Checked out' : 'Check out'} disabled={!survey.checkOutAvailable || survey.checkOutCompleted} onPress={() => router.push('/check-out-survey')} />
+				<ActionButton tone="secondary" label={survey.checkOutCompleted ? 'Checked out' : 'Check out'} disabled={(requireCheckIn && !survey.checkOutAvailable) || survey.checkOutCompleted} onPress={() => router.push('/check-out-survey')} />
 			</View>
 		</>
 	);
@@ -165,6 +179,8 @@ function HoardCave() {
 			appBlockingMode: state.appBlockingMode,
 			blockedApps: state.blockedApps,
 			setAppBlockingMode: state.setAppBlockingMode,
+			unlockedOfflineBoostSlots: state.unlockedOfflineBoostSlots,
+			purchaseOfflineBoostSlot: state.purchaseOfflineBoostSlot,
 		})),
 	);
 	const mode = useWorldStore(state => state.optionsStore.gameMode);
@@ -185,6 +201,10 @@ function HoardCave() {
 						</View>
 					))}
 				</View>
+			</Card>
+			<Card>
+				<SectionTitle title="Offline boost slots" detail={`${offline.unlockedOfflineBoostSlots}/3 unlocked · requirements: 25h, 250h, and 2,500h of Pomodoro focus.`} />
+				<ActionButton label={offline.unlockedOfflineBoostSlots >= 3 ? 'All boost slots unlocked' : `Unlock slot ${offline.unlockedOfflineBoostSlots + 1}`} disabled={offline.unlockedOfflineBoostSlots >= 3} onPress={offline.purchaseOfflineBoostSlot} />
 			</Card>
 			<Card>
 				<SectionTitle title="App blocking" detail="Screen Time / Digital Wellbeing connection still requires a native integration and permission flow." />

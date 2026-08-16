@@ -23,12 +23,14 @@ export interface OfflineProgressStoreState {
 	blockedAppSeconds: number;
 	offAppSeconds: number;
 	activeBoostIds: string[];
+	unlockedOfflineBoostSlots: number;
 	lastBackgroundAt?: string;
 	offlineRewardSeconds: number;
 	offlineRewardWeeks: number;
 	setAppBlockingMode: (mode: AppBlockingMode, hardMode?: boolean) => boolean;
 	setBlockedApps: (apps: string[]) => void;
 	setOfflineBoosts: (boostIds: string[]) => void;
+	purchaseOfflineBoostSlot: () => boolean;
 	markBackgrounded: (timestamp?: Date) => void;
 	recordUsage: (kind: 'allowed' | 'blocked' | 'off-app', seconds: number) => void;
 	consumeProgress: () => OfflineProgress;
@@ -46,6 +48,7 @@ export const initialOfflineProgressState = () => ({
 	blockedAppSeconds: 0,
 	offAppSeconds: 0,
 	activeBoostIds: [] as string[],
+	unlockedOfflineBoostSlots: 0,
 	lastBackgroundAt: undefined as string | undefined,
 	offlineRewardSeconds: 0,
 	offlineRewardWeeks: 0,

@@ -18,7 +18,9 @@ export const DRAGON_PACT_BENEFITS = {
 	goalLimit: Number.POSITIVE_INFINITY,
 	challengeLimitPerType: 15,
 	crimsonHeartMultiplier: 2,
-	harvestMultiplier: 2,
+	harvestXpMultiplier: 2,
+	harvestDarkEnergyMultiplier: 2,
+	harvestFuryReductionMultiplier: 2,
 	goalShardCapMultiplier: 5,
 	marketRewardMultiplier: 1.1,
 } as const;

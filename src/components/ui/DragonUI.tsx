@@ -74,12 +74,13 @@ export function Chip({ label, selected = false, onPress, disabled = false }: { l
 	);
 }
 
-export function TabStrip<T extends string>({ tabs, value, onChange }: { tabs: readonly { id: T; label: string }[]; value: T; onChange: (tab: T) => void }) {
+export function TabStrip<T extends string>({ tabs, value, onChange, milestone = Number.POSITIVE_INFINITY }: { tabs: readonly { id: T; label: string; unlockMilestone?: number }[]; value: T; onChange: (tab: T) => void; milestone?: number }) {
 	return (
 		<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabStrip}>
-			{tabs.map(tab => (
-				<Chip key={tab.id} label={tab.label} selected={tab.id === value} onPress={() => onChange(tab.id)} />
-			))}
+			{tabs.map(tab => {
+				const locked = milestone < (tab.unlockMilestone ?? 0);
+				return <Chip key={tab.id} label={locked ? `🔒 ${tab.label} · Milestone ${tab.unlockMilestone}` : tab.label} disabled={locked} selected={tab.id === value} onPress={() => onChange(tab.id)} />;
+			})}
 		</ScrollView>
 	);
 }

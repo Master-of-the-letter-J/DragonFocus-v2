@@ -1,36 +1,29 @@
 import type { ActiveSpell, Spell } from '@/types/world.types';
 import { createSpell, getSpellLuckMultiplier, spellSellValue } from '@/data/world-data/spells';
-import { SPELL_LOOTBOX_BY_ID, rollWeightedSpellSize, type SpellLootboxId } from '@/data/world-data/spell-lootboxes';
+import { SPELL_SNACKBOX_BY_ID, rollWeightedSpellSize, type SpellSnackboxId } from '@/data/world-data/spell-snackboxes';
 import { scopeNestedSlice } from '../nested-slice';
 import type { ProductionSpecialSlice, ProductionSpecialStoreState } from './_useProductionSpecialStore';
 import { useWorldStore } from '../store-world/_useWorldStore';
 import { useProductionStore } from '../store-production/_useProductionStore';
 
-const REWARDED_AD_WINDOW_MS = 8 * 60 * 60 * 1_000;
-const REWARDED_AD_CLAIMS_PER_WINDOW = 3;
-const lootboxSpellTypes = ['energy', 'dark-energy', 'calm', 'armageddon', 'mega'] as const;
+const snackboxSpellTypes = ['energy', 'dark-energy', 'calm', 'armageddon', 'mega'] as const;
 
 export interface SpellsStoreState {
 	spellInventory: Spell[];
 	activeSpells: ActiveSpell[];
-	rewardedAdClaims: number;
-	rewardedAdWindowStartedAt: string;
-	claimedRewardedAdIds: string[];
 	addSpell: (spell: Spell) => void;
 	activateSpell: (id: string, durationMultiplier?: number) => boolean;
 	sellSpell: (id: string) => boolean;
-	openLootbox: (id: SpellLootboxId, random?: () => number) => Spell[];
-	claimRewardedAdLootbox: (verifiedRewardId: string, random?: () => number, now?: Date) => Spell[];
-	getRewardedAdClaimsRemaining: (now?: Date) => number;
+	openSnackbox: (id: SpellSnackboxId, random?: () => number) => Spell[];
 	tickSpells: (seconds: number) => void;
 	clearActiveSpells: () => void;
 	reset: () => void;
 }
 
-const initialState = () => ({ spellInventory: [] as Spell[], activeSpells: [] as ActiveSpell[], rewardedAdClaims: 0, rewardedAdWindowStartedAt: new Date().toISOString(), claimedRewardedAdIds: [] as string[] });
+const initialState = () => ({ spellInventory: [] as Spell[], activeSpells: [] as ActiveSpell[] });
 
-const rollLootbox = (id: SpellLootboxId, random: () => number) => {
-	const box = SPELL_LOOTBOX_BY_ID[id];
+const rollSnackbox = (id: SpellSnackboxId, random: () => number) => {
+	const box = SPELL_SNACKBOX_BY_ID[id];
 	const hectateLevel = useProductionStore.getState().levels.hectate ?? 0;
 	const luck = getSpellLuckMultiplier(hectateLevel);
 	const weights = hectateLevel > 0 ? box.hectateWeights : box.standardWeights;
@@ -39,7 +32,7 @@ const rollLootbox = (id: SpellLootboxId, random: () => number) => {
 	for (let roll = 0; roll < rolls; roll += 1) {
 		const luckAdjustedRoll = Math.pow(Math.max(Number.MIN_VALUE, random()), 1 / luck);
 		const size = rollWeightedSpellSize(weights, luckAdjustedRoll);
-		const type = lootboxSpellTypes[Math.floor(random() * lootboxSpellTypes.length)] ?? 'energy';
+		const type = snackboxSpellTypes[Math.floor(random() * snackboxSpellTypes.length)] ?? 'energy';
 		for (let copy = 0; copy < box.identicalRollBundle; copy += 1) spells.push(createSpell(type, size));
 	}
 	return spells;
@@ -78,31 +71,12 @@ export const createSpellsSlice: ProductionSpecialSlice<'spells'> = (set, get) =>
 				setSlice(state => ({ spellInventory: state.spellInventory.filter(candidate => candidate.id !== id) }));
 				return true;
 			},
-			openLootbox: (id, random = Math.random) => {
-				const box = SPELL_LOOTBOX_BY_ID[id];
+			openSnackbox: (id, random = Math.random) => {
+				const box = SPELL_SNACKBOX_BY_ID[id];
 				if (!box || !useWorldStore.getState().resourceStore.spendResource('shards', box.shardCost)) return [];
-				const spells = rollLootbox(id, random);
+				const spells = rollSnackbox(id, random);
 				setSlice(state => ({ spellInventory: [...state.spellInventory, ...spells] }));
 				return spells;
-			},
-			claimRewardedAdLootbox: (verifiedRewardId, random = Math.random, now = new Date()) => {
-				const state = getSlice();
-				if (!verifiedRewardId.trim() || state.claimedRewardedAdIds.includes(verifiedRewardId)) return [];
-				const windowExpired = now.getTime() - Date.parse(state.rewardedAdWindowStartedAt) >= REWARDED_AD_WINDOW_MS;
-				const claims = windowExpired ? 0 : state.rewardedAdClaims;
-				if (claims >= REWARDED_AD_CLAIMS_PER_WINDOW) return [];
-				const spells = rollLootbox('basic', random);
-				setSlice(current => ({
-					spellInventory: [...current.spellInventory, ...spells],
-					rewardedAdClaims: claims + 1,
-					rewardedAdWindowStartedAt: windowExpired ? now.toISOString() : current.rewardedAdWindowStartedAt,
-					claimedRewardedAdIds: [...current.claimedRewardedAdIds, verifiedRewardId],
-				}));
-				return spells;
-			},
-			getRewardedAdClaimsRemaining: (now = new Date()) => {
-				const state = getSlice();
-				return now.getTime() - Date.parse(state.rewardedAdWindowStartedAt) >= REWARDED_AD_WINDOW_MS ? REWARDED_AD_CLAIMS_PER_WINDOW : Math.max(0, REWARDED_AD_CLAIMS_PER_WINDOW - state.rewardedAdClaims);
 			},
 			tickSpells: seconds => {
 				if (!Number.isFinite(seconds) || seconds <= 0) return;

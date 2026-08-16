@@ -1,37 +1,41 @@
-import { styles } from '@/components/pages/lair/lair.styles';
+import { ActionButton, Card, Chip, EmptyState, PageIntro, ProgressBar, SectionTitle, TabStrip, uiStyles } from '@/components/ui/DragonUI';
 import { DragonAppScreen } from '@/components/app-shell/DragonAppScreen';
 import { LAIR_TABS, PRESTIGE_TABS, PRODUCTION_TABS, UPGRADE_TABS, type LairTab, type PrestigeTab, type ProductionTab, type UpgradeTab } from '@/components/pages/lair/lair-tabs';
-import { ActionButton, Card, Chip, EmptyState, PageIntro, ProgressBar, SectionTitle, TabStrip, uiStyles } from '@/components/ui/DragonUI';
+import { styles } from '@/components/pages/lair/lair.styles';
 import { dragonTheme } from '@/constants/dragon-theme';
-import { AMPLIFIERS, APOCALYPSE_BOOST_UPGRADES, DEITIES, ENERGY_UPGRADES, GOAL_MULTIPLIERS, PRODUCERS, PRODUCER_UPGRADES, SPECIAL_GENERATORS, TITANS, FORGES } from '@/data/production-data';
-import type { ProductionItem } from '@/types/production.types';
-import type { ResourceAmounts } from '@/types/resources.types';
-import { useProductionStore, type ProductionStoreState } from '@/store/store-production/_useProductionStore';
-import { getProducerDisplayName } from '@/store/store-production/createProducerSlice';
+import { AMPLIFIERS, APOCALYPSE_BOOST_UPGRADES, DEITIES, ENERGY_UPGRADES, FORGES, GOAL_MULTIPLIERS, PRODUCERS, PRODUCER_UPGRADES, SPECIAL_GENERATORS, TITANS } from '@/data/production-data';
+import { useOnlineProgressStore } from '@/store/store-online-progress/_useOnlineProgressStore';
 import { usePrestigeStore } from '@/store/store-prestige/_usePrestigeStore';
 import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
 import { FUELABLE_MONUMENT_IDS } from '@/store/store-production-special/createMonumentsSlice';
+import { useProductionStore, type ProductionStoreState } from '@/store/store-production/_useProductionStore';
+import { getProducerDisplayName } from '@/store/store-production/createProducerSlice';
 import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { useAppStore } from '@/store/useAppStore';
-import { formatDecimal } from '@/utils/decimal';
+import type { ProductionItem } from '@/types/production.types';
+import type { ResourceAmounts } from '@/types/resources.types';
+import { decimal, formatDecimal } from '@/utils/decimal';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, FadeOutUp, useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import { useShallow } from 'zustand/react/shallow';
 
 const { colors } = dragonTheme;
+const COSMETIC_GLOWS = { classic: colors.crimsonSoft, ember: '#7A2D16', astral: '#40276B' } as const;
 export default function LairRoute() {
 	const params = useLocalSearchParams<{ tab?: LairTab }>();
+	const milestone = useProductionStore(state => state.unlockState.milestone);
 	const [tab, setTab] = useState<LairTab>(LAIR_TABS.some(candidate => candidate.id === params.tab) ? params.tab! : 'nexus');
 	const checkInRequired = useAppStore(state => state.requireDailyCheckIn);
 	const checkedIn = useProductivityStore(state => state.surveys.checkInCompleted);
+	const mode = useWorldStore(state => state.optionsStore.gameMode);
 	const panel = tab === 'prestige' ? 'prestige' : 'resources';
-	const gated = tab !== 'nexus' && checkInRequired && !checkedIn;
+	const gated = tab !== 'nexus' && (checkInRequired || mode === 'hard' || mode === 'hard-plus') && !checkedIn;
 	return (
 		<DragonAppScreen title="Dragon's Lair" panel={panel} effects>
-			<TabStrip tabs={LAIR_TABS} value={tab} onChange={setTab} />
+			<TabStrip tabs={LAIR_TABS} value={tab} onChange={setTab} milestone={milestone} />
 			{gated ?
 				<Card accent="gold">
 					<SectionTitle title="The Lair is sleeping" detail="Complete today’s check-in to wake production and prestige systems, or disable this gate in Options." />
@@ -60,18 +64,31 @@ const stageSprites = {
 } as const;
 
 function Nexus() {
+	const numberFormat = useAppStore(state => state.numberFormat);
+	const noSpritesMode = useAppStore(state => state.noSpritesMode);
+	const cosmetic = useAppStore(state => state.dragonCosmetic);
+	const heroFormat = numberFormat === 'scientific' ? 'scientific' : 'long';
 	const resources = useWorldStore(state => state.resourceStore.resources);
 	const dragon = useWorldStore(state => state.resourceStore.dragon);
 	const worldDragon = useWorldStore(state => state.dragonStore);
 	const tap = useSharedValue(1);
+	const [clickFeedback, setClickFeedback] = useState(0);
 	const animated = useAnimatedStyle(() => ({ transform: [{ scale: tap.value }] }));
 	const source = stageSprites[dragon.stage as keyof typeof stageSprites] ?? require('@/assets/images/dragon-stages/dragon.png');
+	if (!worldDragon.dragonSpawned) {
+		return (
+			<Card accent="gold">
+				<PageIntro eyebrow="CLASSIFIED NEXUS" title="Spawn your dragon" description="The rest of Dragon Focus remains sealed until the government Nexus recognizes your dragon." />
+				<ActionButton label="Spawn Dragon" onPress={() => worldDragon.spawnDragon()} />
+			</Card>
+		);
+	}
 	return (
 		<>
 			<PageIntro eyebrow="The core" title="The Nexus" description="Your dragon is both companion and engine. Tap it to spark Energy and a little Fury." />
 			<Card style={styles.energyHero}>
 				<Text style={styles.metricLabel}>Current energy</Text>
-				<Text style={styles.energy}>{formatDecimal(resources.energy)}</Text>
+				<Text style={styles.energy}>{formatDecimal(resources.energy, 2, heroFormat)}</Text>
 			</Card>
 			<Pressable
 				style={styles.dragonStage}
@@ -80,14 +97,20 @@ function Nexus() {
 					// eslint-disable-next-line react-hooks/immutability
 					tap.value = withSequence(withSpring(0.92), withSpring(1.04), withSpring(1));
 					worldDragon.clickDragon();
+					setClickFeedback(current => current + 1);
 				}}>
-				<View style={styles.dragonHalo} />
+				<View style={[styles.dragonHalo, { backgroundColor: COSMETIC_GLOWS[cosmetic] }]} />
 				<Animated.View style={[styles.dragonWrap, animated]}>
-					<Image source={source} resizeMode="contain" style={styles.dragon} />
+					{noSpritesMode ? <Text style={styles.dragonGlyph}>♜</Text> : <Image source={source} resizeMode="contain" style={styles.dragon} />}
 				</Animated.View>
+				{clickFeedback ?
+					<Animated.Text key={clickFeedback} entering={FadeInUp} exiting={FadeOutUp} style={styles.clickFeedback}>
+						+ Energy · +0.01 Fury
+					</Animated.Text>
+				:	null}
 				<Text style={styles.dragonName}>{dragon.name}</Text>
 				<Text style={styles.dragonMeta}>
-					{dragon.stage.replaceAll('-', ' ')} · age {dragon.ageDays.toFixed(2)} days
+					{dragon.stage.replaceAll('-', ' ')} · age {dragon.ageDays.toFixed(2)} days · {cosmetic} cosmetic
 				</Text>
 			</Pressable>
 			<Card accent="crimson">
@@ -103,6 +126,13 @@ function Nexus() {
 }
 
 function Production() {
+	const milestone = useProductionStore(state => state.unlockState.milestone);
+	const levels = useProductionStore(state => state.levels);
+	const goalMultiplier = useProductionStore(state => state.goalMultiplierStore.getProductionMultiplier());
+	const online = useOnlineProgressStore.getState();
+	const productionPerSecond = online.calculateProducerEnergy(1, 1, 'idle');
+	const amplification = online.calculateAmplification();
+	const energyPerSecond = productionPerSecond.times(amplification).times(online.calculateOtherEnergyMultipliers());
 	const [tab, setTab] = useState<ProductionTab>('producers');
 	const [quantity, setQuantity] = useState(1);
 	const items =
@@ -114,7 +144,18 @@ function Production() {
 	return (
 		<>
 			<PageIntro eyebrow="Energy systems" title="Production" description="Build from the core outward. Every output follows production × amplification × goal multiplier × other effects." />
-			<TabStrip tabs={PRODUCTION_TABS} value={tab} onChange={setTab} />
+			<TabStrip tabs={PRODUCTION_TABS} value={tab} onChange={setTab} milestone={milestone} />
+			<Card accent="gold">
+				<SectionTitle
+					title={
+						tab === 'amplifiers' ? `⌁ ×${formatDecimal(amplification)} amplification`
+						: tab === 'goals' ?
+							`✦ ×${formatDecimal(goalMultiplier)} goal multiplier`
+						:	`⚡ ${formatDecimal(energyPerSecond)} Energy/s`
+					}
+					detail={tab === 'producers' ? `⚙ ${formatDecimal(productionPerSecond)} raw production/s · ${Object.values(levels).reduce((sum, level) => sum + level, 0)} total owned` : 'Section totals update live and include every currently active effect.'}
+				/>
+			</Card>
 			{items.length ?
 				<>
 					<Card>
@@ -138,6 +179,10 @@ function Production() {
 }
 
 function ItemList({ items, quantity = 1 }: { items: readonly ProductionItem[]; quantity?: number }) {
+	const reverseItemLayout = useAppStore(state => state.reverseItemLayout);
+	const online = useOnlineProgressStore.getState();
+	const totalProducerRate = online.calculateProducerEnergy(1, 1, 'idle');
+	const totalAmplification = online.calculateAmplification();
 	const store = useProductionStore(
 		useShallow(state => ({
 			levels: state.levels,
@@ -145,51 +190,80 @@ function ItemList({ items, quantity = 1 }: { items: readonly ProductionItem[]; q
 			getCost: state.getCost,
 			getCosts: state.getCosts,
 			canPurchase: state.canPurchase,
+			isItemUnlocked: state.isItemUnlocked,
 			purchase: state.purchase,
 			sell: state.sell,
 		})),
 	);
 	const resources = useWorldStore(state => state.resourceStore.resources);
+	const firstLockedIndex = items.findIndex(item => !store.isItemUnlocked(item.id));
+	const visibleItems = items.filter((item, index) => store.isItemUnlocked(item.id) || index === firstLockedIndex);
 	return (
 		<View style={styles.itemList}>
-			{items.map((item, index) => {
+			{visibleItems.map((item, index) => {
 				const level = store.levels[item.id] ?? 0;
+				const unlocked = store.isItemUnlocked(item.id);
 				const count = quantity === 999 ? maximumAffordable(store, item.id, resources) : quantity;
 				const cost = store.getCost(item.id, count);
 				const progress = store.producerStore.progress[item.id];
+				const itemRate = item.kind === 'producer' && 'baseProduction' in item ? decimal(item.baseProduction).times(level) : decimal(0);
+				const itemAmplification = item.kind === 'amplifier' && 'amplification' in item ? decimal(item.amplification).times(level) : decimal(0);
+				const contribution =
+					item.kind === 'producer' && totalProducerRate.gt(0) ? itemRate.div(totalProducerRate).times(100)
+					: item.kind === 'amplifier' && totalAmplification.gt(0) ? itemAmplification.div(totalAmplification).times(100)
+					: decimal(0);
 				return (
 					<Animated.View key={item.id} entering={FadeInDown.delay(Math.min(index * 25, 250))}>
-						<Card style={styles.itemCard}>
-							<View style={styles.itemRow}>
-								<View style={styles.itemIcon}>
-									<Text style={styles.itemIconText}>
+						{!unlocked ?
+							<Card accent="violet">
+								<EmptyState icon="🔒" title="Classified blueprint" description={`Unlocked by ${item.unlocks?.map(requirement => (requirement.metric === 'milestone' ? `Milestone ${requirement.amount}` : requirement.metric.replaceAll('-', ' '))).join(' and ') || 'the previous discovery'}.`} />
+							</Card>
+						:	<Card style={styles.itemCard}>
+								<View style={[styles.itemRow, reverseItemLayout && styles.itemRowReversed]}>
+									<View style={styles.itemIcon}>
+										<Text style={styles.itemIconText}>
+											{item.kind === 'producer' ?
+												'⚙'
+											: item.kind === 'amplifier' ?
+												'⌁'
+											: item.kind === 'deity' || item.kind === 'titan' ?
+												'♜'
+											:	'✦'}
+										</Text>
+									</View>
+									<View style={styles.itemCopy}>
+										<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.itemLevel}>
+											LEVEL {formatDecimal(level, 0)}
+										</Text>
+										<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.itemName}>
+											{progress && item.kind === 'producer' ? getProducerDisplayName(item as (typeof PRODUCERS)[number], progress) : item.name}
+										</Text>
+										<Text numberOfLines={2} style={uiStyles.muted}>
+											{item.description}
+										</Text>
 										{item.kind === 'producer' ?
-											'⚙'
-										: item.kind === 'amplifier' ?
-											'⌁'
-										: item.kind === 'deity' || item.kind === 'titan' ?
-											'♜'
-										:	'✦'}
-									</Text>
+											<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={styles.metric}>
+												⚡ {formatDecimal(itemRate)} /s · {formatDecimal(contribution, 1)}%
+											</Text>
+										:	null}
+										{item.kind === 'amplifier' ?
+											<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={styles.metric}>
+												⌁ +{formatDecimal(itemAmplification)} · {formatDecimal(contribution, 1)}%
+											</Text>
+										:	null}
+										<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.58} style={styles.cost}>
+											{formatDecimal(cost)} {item.costs[0]?.resource ?? 'resource'}
+										</Text>
+									</View>
+									<View style={styles.itemActions}>
+										<ActionButton compact label={quantity === 999 ? `Buy MAX (${formatDecimal(count, 0)})` : `Buy ${formatDecimal(count, 0)}`} disabled={!count || !store.canPurchase(item.id)} onPress={() => store.purchase(item.id, count)} />
+										{item.kind === 'producer' || item.kind === 'amplifier' ?
+											<ActionButton compact tone="quiet" label="Sell 1" disabled={!level} onPress={() => store.sell(item.id, 1)} />
+										:	null}
+									</View>
 								</View>
-								<View style={styles.itemCopy}>
-									<Text style={styles.itemLevel}>LEVEL {level}</Text>
-									<Text style={styles.itemName}>{progress && item.kind === 'producer' ? getProducerDisplayName(item as (typeof PRODUCERS)[number], progress) : item.name}</Text>
-									<Text numberOfLines={2} style={uiStyles.muted}>
-										{item.description}
-									</Text>
-									<Text style={styles.cost}>
-										{formatDecimal(cost)} {item.costs[0]?.resource ?? 'resource'}
-									</Text>
-								</View>
-								<View style={styles.itemActions}>
-									<ActionButton compact label={quantity === 999 ? `Buy MAX (${count})` : `Buy ${count}`} disabled={!count || !store.canPurchase(item.id)} onPress={() => store.purchase(item.id, count)} />
-									{item.kind === 'producer' || item.kind === 'amplifier' ?
-										<ActionButton compact tone="quiet" label="Sell 1" disabled={!level} onPress={() => store.sell(item.id, 1)} />
-									:	null}
-								</View>
-							</View>
-						</Card>
+							</Card>
+						}
 					</Animated.View>
 				);
 			})}
@@ -434,9 +508,7 @@ function MonumentBars() {
 	);
 }
 function Transcension() {
-	const prestige = usePrestigeStore(
-		useShallow(state => ({ transcensionCount: state.transcensionCount, commitTranscension: state.commitTranscension })),
-	);
+	const prestige = usePrestigeStore(useShallow(state => ({ transcensionCount: state.transcensionCount, commitTranscension: state.commitTranscension })));
 	const resources = useWorldStore(state => state.resourceStore.resources);
 	return (
 		<>

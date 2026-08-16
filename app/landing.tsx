@@ -1,9 +1,9 @@
-import { styles } from '@/components/pages/landing/landing.styles';
 import { ActionButton } from '@/components/ui/DragonUI';
+import { styles } from '@/components/pages/landing/landing.styles';
 import { useAppStore } from '@/store/useAppStore';
+import { router } from 'expo-router';
 import { Image, Text, View } from 'react-native';
 import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
-import { router } from 'expo-router';
 
 export default function LandingRoute() {
 	const startGame = useAppStore(state => state.startGame);
@@ -20,7 +20,7 @@ export default function LandingRoute() {
 		content.value = withTiming(0, { duration: 260 });
 		left.value = withDelay(100, withTiming(1, { duration: 850, easing: Easing.inOut(Easing.cubic) }));
 		right.value = withDelay(100, withTiming(1, { duration: 850, easing: Easing.inOut(Easing.cubic) }));
-		setTimeout(() => router.replace('/(_tabs)/earth'), 760);
+		setTimeout(() => router.replace('/(_tabs)/lair?tab=nexus'), 760);
 	};
 	return (
 		<View style={styles.root}>

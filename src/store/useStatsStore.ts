@@ -3,6 +3,7 @@ import { unlockedAchievements } from '@/data/calculations/formula-stats';
 import type { Goal } from '@/types/goals.types';
 import { RESOURCE_IDS, type ResourceAmounts, type ResourceId } from '@/types/resources.types';
 import { decimal, deserializeDecimal, serializeDecimal } from '@/utils/decimal';
+import { useWorldStore } from './store-world/_useWorldStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -98,8 +99,15 @@ export const useStatsStore = create<StatsStoreState>()(
 			metricValue: metric => achievementMetric(get(), metric),
 			refreshAchievements: () => {
 				const state = get();
-				const additions = unlockedAchievements(ACHIEVEMENTS, state.unlockedAchievementIds, metric => achievementMetric(state, metric)).map(achievement => achievement.id);
-				if (additions.length) set(current => ({ unlockedAchievementIds: [...current.unlockedAchievementIds, ...additions] }));
+				const unlocked = unlockedAchievements(ACHIEVEMENTS, state.unlockedAchievementIds, metric => achievementMetric(state, metric));
+				const additions = unlocked.map(achievement => achievement.id);
+				if (additions.length) {
+					set(current => ({ unlockedAchievementIds: [...current.unlockedAchievementIds, ...additions] }));
+					useWorldStore.getState().resourceStore.addResource(
+						'shards',
+						unlocked.reduce((total, achievement) => total + achievement.shards, 0),
+					);
+				}
 				return additions;
 			},
 			reset: () => set(initialState()),

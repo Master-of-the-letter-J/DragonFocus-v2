@@ -1,18 +1,19 @@
+/** Navigation metadata for the Lair route. */
 export const LAIR_TABS = [
-	{ id: 'nexus', label: 'The Nexus' },
-	{ id: 'production', label: 'Energy Production' },
-	{ id: 'upgrades', label: 'Dark Energy' },
-	{ id: 'prestige', label: 'Prestige & Deities' },
+	{ id: 'nexus', label: "Dragon's Nexus", unlockMilestone: 0 },
+	{ id: 'production', label: 'Energy Production', unlockMilestone: 0.25 },
+	{ id: 'upgrades', label: 'Dark Energy', unlockMilestone: 0.5 },
+	{ id: 'prestige', label: 'Prestige & Deities', unlockMilestone: 5 },
 ] as const;
 
 export const PRODUCTION_TABS = [
-	{ id: 'producers', label: 'Production' },
-	{ id: 'amplifiers', label: 'Amplifiers' },
-	{ id: 'goals', label: 'Goal Multipliers' },
-	{ id: 'special', label: 'Special Generation' },
-	{ id: 'heart', label: 'Crimson Heart' },
-	{ id: 'incinerator', label: 'Incinerator' },
-	{ id: 'convertor', label: 'Convertor' },
+	{ id: 'heart', label: 'Crimson Heart', unlockMilestone: 0.25 },
+	{ id: 'producers', label: 'Production', unlockMilestone: 0.25 },
+	{ id: 'amplifiers', label: 'Amplifiers', unlockMilestone: 1 },
+	{ id: 'goals', label: 'Goal Multipliers', unlockMilestone: 2 },
+	{ id: 'special', label: 'Special Generation', unlockMilestone: 5 },
+	{ id: 'incinerator', label: 'Incinerator', unlockMilestone: 5 },
+	{ id: 'convertor', label: 'Convertor', unlockMilestone: 5 },
 ] as const;
 
 export const UPGRADE_TABS = [
@@ -36,4 +37,3 @@ export type LairTab = (typeof LAIR_TABS)[number]['id'];
 export type ProductionTab = (typeof PRODUCTION_TABS)[number]['id'];
 export type UpgradeTab = (typeof UPGRADE_TABS)[number]['id'];
 export type PrestigeTab = (typeof PRESTIGE_TABS)[number]['id'];
-
