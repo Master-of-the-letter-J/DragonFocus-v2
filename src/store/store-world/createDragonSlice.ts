@@ -21,13 +21,19 @@ export interface DragonStoreState {
 	buyAngerShields: (quantity?: number) => boolean;
 	siphonFury: (amount?: number) => boolean;
 	reviveDragon: () => boolean;
-	clickDragon: () => string | undefined;
-	clickWorld: () => void;
+	clickDragon: () => DragonClickReward | undefined;
+	clickWorld: () => string | undefined;
 	setAngerShields: (amount: number) => void;
 	recordDragonAge: (ageDays: number) => void;
 	startReviveGrace: (seconds: number) => void;
 	clearReviveGrace: () => void;
 	reset: () => void;
+}
+
+export interface DragonClickReward {
+	energy: string;
+	fury: string;
+	quote?: string;
 }
 
 const initialState = () => ({
@@ -100,27 +106,29 @@ export const createDragonSlice: WorldSlice<'dragonStore'> = (set, get) => {
 		const levels = useProductionStore.getState().levels;
 		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return undefined;
 		const base = decimal(1 + (levels['bigger-clicks'] ?? 0)).times(decimal(2).pow(levels['double-clicks'] ?? 0));
+		const fury = decimal(Math.max(0, 0.01 - (levels['less-angry-clicks'] ?? 0) * 0.001));
 		resources.addResource('energy', base);
-		resources.addPopulation(decimal(10).pow(levels['gaias-gift'] ?? 0));
-		resources.addResource('fury', Math.max(0, 0.01 - (levels['less-angry-clicks'] ?? 0) * 0.001));
-		const bonusTicks = 0.2 * ((levels['true-dragon-clicks'] ?? 0) + (levels['un-worldly-clicks'] ?? 0));
+		resources.addResource('fury', fury);
+		const bonusTicks = 0.2 * (levels['true-dragon-clicks'] ?? 0);
 		if (bonusTicks > 0) useOnlineProgressStore.getState().tickWorld(bonusTicks);
 		const quote = DRAGON_QUOTES[Math.floor(Math.random() * DRAGON_QUOTES.length)];
 		if (getRoot().optionsStore.nexusSettings.showDragonQuotes) setSlice({ lastDragonQuote: quote });
-		return quote;
+		return { energy: base.toString(), fury: fury.toString(), quote };
 	},
 	clickWorld: () => {
 		const resources = getRoot().resourceStore;
-		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return;
-		resources.addResource('energy', 1);
-		const level = useProductionStore.getState().levels['un-worldly-clicks'] ?? 0;
+		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return undefined;
+		const levels = useProductionStore.getState().levels;
+		const startingPopulation = resources.resources.population;
+		resources.addPopulation(decimal(10).pow(levels['gaias-gift'] ?? 0));
+		const level = levels['un-worldly-clicks'] ?? 0;
 		const growthTicks = Math.min(1, level * 0.2);
 		if (growthTicks > 0) {
 			const population = resources.resources.population;
 			const nextPopulation = useOnlineProgressStore.getState().calculatePopulationProgress({ initial: population, ticks: growthTicks, multiplier: 1 });
 			resources.addPopulation(nextPopulation.minus(population));
 		}
-		resources.addResource('fury', 0.01);
+		return resources.resources.population.minus(startingPopulation).toString();
 	},
 	setAngerShields: amount => setSlice({ angerShields: Math.max(0, amount) }),
 	recordDragonAge: ageDays => {

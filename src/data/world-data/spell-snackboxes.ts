@@ -10,12 +10,12 @@ export interface SpellSnackboxDefinition {
 	maximumRolls: number;
 	identicalRollBundle: number;
 	standardWeights: Partial<Record<SpellSize, number>>;
-	hectateWeights: Partial<Record<SpellSize, number>>;
+	hecateWeights: Partial<Record<SpellSize, number>>;
 }
 
 /** Integer weights total 100, making every disclosed chance independently testable. */
 export const SPELL_SNACKBOXES: readonly SpellSnackboxDefinition[] = [
-	{ id: 'snackbox', name: 'Dragon Snackbox', shardCost: 20, minimumRolls: 1, maximumRolls: 2, identicalRollBundle: 1, standardWeights: { 1: 78, 2: 10, 3: 8, 4: 4 }, hectateWeights: { 1: 35, 2: 12, 3: 25, 4: 15, 5: 8, 6: 5 } },
+	{ id: 'snackbox', name: 'Dragon Snackbox', shardCost: 20, minimumRolls: 1, maximumRolls: 2, identicalRollBundle: 1, standardWeights: { 1: 78, 2: 10, 3: 8, 4: 4 }, hecateWeights: { 1: 35, 2: 12, 3: 25, 4: 15, 5: 8, 6: 5 } },
 ];
 
 export const SPELL_SNACKBOX_BY_ID = Object.fromEntries(SPELL_SNACKBOXES.map(box => [box.id, box])) as Record<SpellSnackboxId, SpellSnackboxDefinition>;

@@ -22,7 +22,7 @@ export const SCROLL_TABS: readonly ScrollTabDefinition[] = [
 		name: 'Black Market & Spells',
 		milestone: 3,
 		description: 'Fixed purchases, spell crafting, selling, and disclosed Snackbox odds.',
-		info: ['Fixed purchases are never randomized; Snackbox odds are disclosed separately.', 'Hold up to three ad charges; one returns every three real-time hours and each verified ad awards 5 Shards.', 'Spell size, effect, duration, and sell value are always visible.', 'Same-type, same-size spell activations stack duration.', 'Hectate unlocks Divine I and Divine II exclusively in Snackboxes and improves their odds.'],
+		info: ['Fixed purchases are never randomized; Snackbox odds are disclosed separately.', 'Hold up to three ad charges; one returns every three real-time hours and each verified ad awards 5 Shards.', 'Spell size, effect, duration, and sell value are always visible.', 'Same-type, same-size spell activations stack duration.', 'Hecate unlocks Divine I and Divine II exclusively in Snackboxes and improves their odds.'],
 	},
 	{
 		id: 'chronicles',

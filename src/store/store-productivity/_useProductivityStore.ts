@@ -6,7 +6,7 @@ import { createGoalSlice, type GoalStoreState } from './createGoalSlice';
 import { createPomodoroSlice, type PomodoroStoreState } from './createPomodoroSlice';
 import { createProductivityActionsSlice } from './createProductivityActionsSlice';
 import { createSurveySlice, type SurveyStoreState } from './createSurveySlice';
-import { createSurveyPreferencesSlice, type SurveyPreferencesStoreState } from './createSurveyPreferencesSlice';
+import { createSurveyPreferencesSlice, migrateSurveyPreferences, type SurveyPreferencesStoreState } from './createSurveyPreferencesSlice';
 
 export interface ProductivityStoreState {
 	goals: GoalStoreState;
@@ -31,7 +31,10 @@ export const useProductivityStore = create<ProductivityStoreState>()(
 		{
 			name: 'dragonfocus:productivity',
 			storage: createJSONStorage(() => AsyncStorage),
-			merge: (persisted, current) => mergePersistedNestedState(persisted, current, ['goals', 'pomodoro', 'surveys', 'surveyPreferences']),
+			merge: (persisted, current) => {
+				const merged = mergePersistedNestedState(persisted, current, ['goals', 'pomodoro', 'surveys', 'surveyPreferences']);
+				return { ...merged, surveyPreferences: migrateSurveyPreferences(merged.surveyPreferences) };
+			},
 		},
 	),
 );

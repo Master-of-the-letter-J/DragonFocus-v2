@@ -24,9 +24,9 @@ const initialState = () => ({ spellInventory: [] as Spell[], activeSpells: [] as
 
 const rollSnackbox = (id: SpellSnackboxId, random: () => number) => {
 	const box = SPELL_SNACKBOX_BY_ID[id];
-	const hectateLevel = useProductionStore.getState().levels.hectate ?? 0;
-	const luck = getSpellLuckMultiplier(hectateLevel);
-	const weights = hectateLevel > 0 ? box.hectateWeights : box.standardWeights;
+	const hecateLevel = useProductionStore.getState().levels.hecate ?? 0;
+	const luck = getSpellLuckMultiplier(hecateLevel);
+	const weights = hecateLevel > 0 ? box.hecateWeights : box.standardWeights;
 	const rolls = box.minimumRolls + Math.floor(random() * (box.maximumRolls - box.minimumRolls + 1));
 	const spells: Spell[] = [];
 	for (let roll = 0; roll < rolls; roll += 1) {
@@ -49,8 +49,8 @@ export const createSpellsSlice: ProductionSpecialSlice<'spells'> = (set, get) =>
 			activateSpell: (id, durationMultiplier = 1) => {
 				const spell = getSlice().spellInventory.find(candidate => candidate.id === id);
 				if (!spell) return false;
-				const hectateLevel = useProductionStore.getState().levels.hectate ?? 0;
-				const effectMultiplier = hectateLevel > 0 ? 2 * hectateLevel : 1;
+				const hecateLevel = useProductionStore.getState().levels.hecate ?? 0;
+				const effectMultiplier = hecateLevel > 0 ? 2 * hecateLevel : 1;
 				const activatedSpell = { ...spell, effects: spell.effects.map(effect => ({ ...effect, multiplier: effect.multiplier * effectMultiplier })) };
 				setSlice(state => ({
 					spellInventory: state.spellInventory.filter(candidate => candidate.id !== id),

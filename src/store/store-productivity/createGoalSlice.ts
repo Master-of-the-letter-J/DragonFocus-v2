@@ -168,7 +168,8 @@ export interface GoalStoreState {
 	removeGoal: (id: string) => void;
 	updateGoal: (id: string, changes: Partial<Goal>) => void;
 	setGoalChallenge: (id: string, challenge: Goal['challenge']) => boolean;
-	completeGoal: (id: string, now?: Date) => boolean;
+	completeGoal: (id: string, now?: Date, automaticSpecial?: boolean) => boolean;
+	completeSpecialHabit: (kind: SpecialHabitKind, now?: Date) => boolean;
 	restoreGoal: (id: string) => boolean;
 	harvestGoal: (id: string, mode: GameMode) => GoalReward | undefined;
 	harvestAllPending: (mode: GameMode) => GoalReward[];
@@ -302,13 +303,19 @@ export const createGoalSlice: ProductivitySlice<'goals'> = (set, get) => {
 				}));
 				return true;
 			},
-			completeGoal: (id, now = new Date()) => {
+			completeGoal: (id, now = new Date(), automaticSpecial = false) => {
 				const state = getSlice();
 				const goal = [...state.incompleteHabits, ...state.incompleteTasks, ...state.specialHabits.filter(candidate => candidate.status === 'incomplete')].find(candidate => candidate.id === id);
 				if (!goal) return false;
-				if (goal.type === 'special-habit' && !isSpecialHabitReady(goal, getRoot())) {
-					setSlice({ lastWarning: 'Complete the linked survey or Pomodoro session before marking this special habit complete.' });
-					return false;
+				if (goal.type === 'special-habit') {
+					if (!automaticSpecial) {
+						setSlice({ lastWarning: 'This special goal is checked off automatically by its linked survey or Pomodoro session.' });
+						return false;
+					}
+					if (!isSpecialHabitReady(goal, getRoot())) {
+						setSlice({ lastWarning: 'Complete the linked survey or Pomodoro session before marking this special habit complete.' });
+						return false;
+					}
 				}
 				const time = now.getTime();
 
@@ -366,6 +373,10 @@ export const createGoalSlice: ProductivitySlice<'goals'> = (set, get) => {
 				}));
 				useProductionStore.getState().updateUnlockState({ completedGoals: useProductionStore.getState().unlockState.completedGoals + 1 });
 				return true;
+			},
+			completeSpecialHabit: (kind, now = new Date()) => {
+				const specialHabit = getSlice().specialHabits.find(goal => goal.specialKind === kind && goal.status === 'incomplete');
+				return specialHabit ? getSlice().completeGoal(specialHabit.id, now, true) : false;
 			},
 			restoreGoal: id => {
 				const specialHabit = getSlice().specialHabits.find(candidate => candidate.id === id && candidate.status === 'completed');
@@ -476,7 +487,8 @@ export const createGoalSlice: ProductivitySlice<'goals'> = (set, get) => {
 			getPomodoroGoals: () => [...getSlice().incompleteHabits, ...getSlice().incompleteTasks, ...getSlice().specialHabits].filter(goal => goal.pomodoroPinned),
 			processMidnight: (now = new Date()) => {
 				const midnightDate = now.toISOString().slice(0, 10);
-				if (getSlice().lastMidnightDate === midnightDate) return;
+				const previousMidnightDate = getSlice().lastMidnightDate;
+				if (previousMidnightDate === midnightDate) return;
 				const nowMs = now.getTime();
 				const hestiaLevel = useProductionStore.getState().levels.hestia ?? 0;
 				const crackAfterMs = (24 + hestiaLevel * 12) * 60 * 60 * 1_000;
@@ -503,6 +515,7 @@ export const createGoalSlice: ProductivitySlice<'goals'> = (set, get) => {
 					shardHarvestDate: midnightDate,
 					shardsHarvestedToday: 0,
 				}));
+				if (previousMidnightDate) getRoot().surveys.resetDaily();
 			},
 			repairHabitStreak: id => {
 				const habit = getSlice().incompleteHabits.find(goal => goal.id === id) ?? getSlice().specialHabits.find(goal => goal.id === id);

@@ -7,11 +7,20 @@ import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { styles } from './options.styles';
 
-const QUESTION_LABELS: Record<SurveyQuestionId, string> = { mood: 'Mood', goals: 'Goals', advice: 'Advice', journal: 'Journal' };
+const QUESTION_LABELS: Record<SurveyQuestionId, string> = {
+	mood: 'Mood',
+	'create-habit': 'Create a habit',
+	'create-task': 'Create a task',
+	'review-goals': 'Edit / review goals',
+	advice: 'Advice',
+	journal: 'Journal',
+};
 
 export function SurveySettings() {
 	const requireCheckIn = useAppStore(state => state.requireDailyCheckIn);
 	const setRequireCheckIn = useAppStore(state => state.setRequireDailyCheckIn);
+	const requireCheckOut = useAppStore(state => state.requireDailyCheckOut);
+	const setRequireCheckOut = useAppStore(state => state.setRequireDailyCheckOut);
 	const preferences = useProductivityStore(state => state.surveyPreferences);
 	return (
 		<>
@@ -19,9 +28,10 @@ export function SurveySettings() {
 			<Card accent="gold">
 				<SectionTitle title="Check-in requirements" />
 				<ToggleRow label="Require daily check-in" detail="Locks check-in-dependent Lair systems until today’s check-in is complete." value={requireCheckIn} onChange={setRequireCheckIn} />
+				<ToggleRow label="Require daily check-out" detail="Keeps reward-focused systems gated until today’s debriefing is complete." value={requireCheckOut} onChange={setRequireCheckOut} />
 			</Card>
 			<Card>
-				<SectionTitle title="Questions" detail="Disable optional questions or move them into the order you prefer." />
+				<SectionTitle title="Questions" detail="Check-In creation prompts and the full goal editor are separate. The first survey skips creation prompts." />
 				{preferences.questionOrder.map((question, index) => (
 					<View key={question} style={styles.orderRow}>
 						<Text style={styles.orderIndex}>{index + 1}</Text>

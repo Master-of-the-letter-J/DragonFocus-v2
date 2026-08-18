@@ -46,7 +46,7 @@ const maximumCharge = () => {
 
 const crimsonHeartTarget = (activity: AppActivity) => {
 	const cheats = useDevelopmentStore.getState().temporaryCheats;
-	if (__DEV__ && activity === 'idle' && cheats.enabled && cheats.crimsonHeartOnAppPercent !== undefined) return maximumCharge() * (cheats.crimsonHeartOnAppPercent / 100);
+	if (__DEV__ && activity === 'idle' && cheats.enabled && cheats.crimsonHeartOnAppPercent !== undefined) return Math.min(maximumCharge(), Math.max(0, cheats.crimsonHeartOnAppPercent));
 	const targets = rawHeartTargets();
 
 	const target =

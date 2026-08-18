@@ -9,7 +9,7 @@ import { useState } from 'react';
 export default function OptionsRoute() {
 	const [tab, setTab] = useState<OptionsTab>('general');
 	return (
-		<DragonAppScreen title="Settings" panel="dragon">
+		<DragonAppScreen title="Settings" panel="world">
 			<TabStrip tabs={OPTIONS_TABS} value={tab} onChange={setTab} />
 			{tab === 'general' ? <GeneralSettings /> : tab === 'surveys' ? <SurveySettings /> : <SettingsTutorial />}
 		</DragonAppScreen>

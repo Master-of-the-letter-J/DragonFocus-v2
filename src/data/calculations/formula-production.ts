@@ -22,9 +22,13 @@ export const calculateMilestoneGrowth = (amount: number, milestones: readonly Mi
 		return total.times(calculateExponentialGrowth({ base: 1, growthFactor: milestone.multiplier }, cappedRepeats));
 	}, decimal(1));
 
-/** Adds the consecutive exponential costs required to buy multiple levels at once. */
+/** Adds the consecutive growth costs required to buy multiple levels at once. */
 export const calculateGeometricCost = (growth: ExponentialGrowth, owned: number, quantity: number) => {
 	const safeQuantity = Math.max(1, Math.floor(quantity));
+	if (growth.growthMode === 'linear') {
+		const firstLevel = Math.max(0, Math.floor(owned));
+		return decimal(growth.base).times(safeQuantity).times(firstLevel + (safeQuantity - 1) / 2);
+	}
 	const growthFactor = decimal(growth.growthFactor);
 	if (growthFactor.eq(1)) return decimal(growth.base).times(safeQuantity);
 

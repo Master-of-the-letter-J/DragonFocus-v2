@@ -105,7 +105,7 @@ const requirementsMet = (item: ProductionItem, state: ProductionStoreState) => {
 				return state.unlockState.transcensions >= (requirement.amount ?? 0);
 			case 'pantheon-members':
 				return (
-					['zeus', 'poseidon', 'hades', 'hera', 'demeter', 'athena', 'apollo', 'artemis', 'aphrodite', 'hermes', 'dionysus', 'hestia', 'hectate', 'kronos', 'oceanus', 'hyperion', 'iapetus', 'coeus', 'crius', 'atlas', 'prometheus', 'rhea', 'themis', 'mnemosyne', 'phoebe', 'tethys', 'theia'].filter(id => (state.levels[id] ?? 0) > 0).length >=
+					['zeus', 'poseidon', 'hades', 'hera', 'demeter', 'athena', 'apollo', 'artemis', 'aphrodite', 'hermes', 'dionysus', 'hestia', 'hecate', 'kronos', 'oceanus', 'hyperion', 'iapetus', 'coeus', 'crius', 'atlas', 'prometheus', 'rhea', 'themis', 'mnemosyne', 'phoebe', 'tethys', 'theia'].filter(id => (state.levels[id] ?? 0) > 0).length >=
 					(requirement.amount ?? 0)
 				);
 			case 'titan-equivalents':
@@ -117,7 +117,7 @@ const requirementsMet = (item: ProductionItem, state: ProductionStoreState) => {
 };
 
 const initialState = () => ({
-	levels: {} as Record<string, number>,
+	levels: { 'bigger-clicks': 1 } as Record<string, number>,
 	paidCostLevels: {} as Record<string, number>,
 	effects: {} as Partial<Record<ProductionEffectId, boolean>>,
 	unlockState: emptyUnlockState(),
@@ -186,7 +186,7 @@ const createProductionSlice: StateCreator<ProductionStoreState, [], [], Producti
 		const paidLevel = get().paidCostLevels[itemId] ?? 0;
 		const totals: Partial<Record<SpendableResourceId, ReturnType<typeof decimal>>> = {};
 		for (const cost of [...item.costs, ...(item.activationCosts ?? [])]) {
-			if (cost.resource === 'anomaly' && item.kind === 'deity' && item.id !== 'hectate') {
+			if (cost.resource === 'anomaly' && item.kind === 'deity' && item.id !== 'hecate') {
 				const summoned = DEITIES.filter(deity => (levels[deity.id] ?? 0) > 0).length;
 				const value = Array.from({ length: amount }, (_, index) => {
 					const level = owned + index;
@@ -306,6 +306,7 @@ export const useProductionStore = create<ProductionStoreState>()(
 				const merged = mergePersistedNestedState(stored, current, ['producerStore', 'amplifierStore', 'goalMultiplierStore', 'forgingStore', 'respecStore']);
 				return {
 					...merged,
+					levels: { ...current.levels, ...(stored.levels ?? {}) },
 					producerStore: {
 						...merged.producerStore,
 						progress: stored.producerProgress ?? merged.producerStore.progress,
@@ -329,7 +330,7 @@ export const useProductionStore = create<ProductionStoreState>()(
 export const getLevel = (levels: Record<string, number>, itemId: string) => levels[itemId] ?? 0;
 export const getDeityLevels = (levels: Record<string, number>) =>
 	Object.fromEntries(
-		['zeus', 'poseidon', 'hades', 'hera', 'demeter', 'athena', 'apollo', 'artemis', 'aphrodite', 'hermes', 'dionysus', 'hestia', 'hectate', 'kronos', 'oceanus', 'hyperion', 'iapetus', 'coeus', 'crius', 'atlas', 'prometheus', 'rhea', 'themis', 'mnemosyne', 'phoebe', 'tethys', 'theia'].map(id => {
+		['zeus', 'poseidon', 'hades', 'hera', 'demeter', 'athena', 'apollo', 'artemis', 'aphrodite', 'hermes', 'dionysus', 'hestia', 'hecate', 'kronos', 'oceanus', 'hyperion', 'iapetus', 'coeus', 'crius', 'atlas', 'prometheus', 'rhea', 'themis', 'mnemosyne', 'phoebe', 'tethys', 'theia'].map(id => {
 			const level = levels[id] ?? 0;
 			const kind = PRODUCTION_BY_ID[id]?.kind;
 			const target =

@@ -8,9 +8,9 @@ export interface MilestoneDefinition {
 
 const earlyThresholds: readonly [number, DecimalSource][] = [
 	[0, 0],
-	[0.25, 25],
-	[0.5, 50],
-	[0.75, 100],
+	[0.25, 50],
+	[0.5, 100],
+	[0.75, 250],
 	[1, '1e3'],
 	[2, '1e4'],
 	[3, '1e5'],
@@ -22,6 +22,13 @@ const earlyThresholds: readonly [number, DecimalSource][] = [
 	[9, '1e18'],
 	[10, '1e21'],
 ];
+
+/** Human-readable names for the fractional opening milestones. */
+export const milestoneLabel = (milestone: number) =>
+	milestone === 0.25 ? '1/4'
+	: milestone === 0.5 ? '1/2'
+	: milestone === 0.75 ? '3/4'
+	: `${milestone}`;
 
 /**
  * Post-M10 pacing deliberately changes by era: x100 through M20, x1000

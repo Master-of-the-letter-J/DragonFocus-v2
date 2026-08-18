@@ -18,7 +18,7 @@ export const createTemporaryCheatsSlice: DevelopmentSlice<'temporaryCheats'> = s
 	temporaryCheats: {
 		...initialState(),
 		setEnabled: enabled => set(state => ({ temporaryCheats: { ...state.temporaryCheats, enabled } })),
-		setCrimsonHeartOnAppPercent: percent => set(state => ({ temporaryCheats: { ...state.temporaryCheats, crimsonHeartOnAppPercent: Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : undefined } })),
+		setCrimsonHeartOnAppPercent: percent => set(state => ({ temporaryCheats: { ...state.temporaryCheats, crimsonHeartOnAppPercent: Number.isFinite(percent) ? Math.max(0, percent) : undefined } })),
 		reset: () => set(state => ({ temporaryCheats: { ...state.temporaryCheats, ...initialState() } })),
 	},
 });

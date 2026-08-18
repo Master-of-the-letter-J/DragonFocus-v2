@@ -1,4 +1,5 @@
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
+import { milestoneLabel } from '@/data/world-data/milestones';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown, LinearTransition, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -41,14 +42,16 @@ export function SectionTitle({ title, detail, action }: { title: string; detail?
 	);
 }
 
-export function ActionButton({ label, tone = 'primary', compact = false, disabled, ...props }: PressableProps & { label: string; tone?: 'primary' | 'secondary' | 'danger' | 'quiet'; compact?: boolean }) {
+export function ActionButton({ label, tone = 'primary', compact = false, disabled, onPress, onDisabledPress, ...props }: PressableProps & { label: string; tone?: 'primary' | 'secondary' | 'danger' | 'quiet'; compact?: boolean; onDisabledPress?: () => void }) {
 	const scale = useSharedValue(1);
 	const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 	return (
 		<Animated.View style={[animatedStyle, disabled && styles.disabled]}>
 			<Pressable
 				accessibilityRole="button"
-				disabled={disabled}
+				accessibilityState={{ ...props.accessibilityState, disabled: Boolean(disabled) }}
+				disabled={Boolean(disabled && !onDisabledPress)}
+				onPress={disabled ? onDisabledPress : onPress}
 				onPressIn={() => {
 					// Reanimated shared values are intentionally mutable animation handles.
 					// eslint-disable-next-line react-hooks/immutability
@@ -79,7 +82,7 @@ export function TabStrip<T extends string>({ tabs, value, onChange, milestone = 
 		<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabStrip}>
 			{tabs.map(tab => {
 				const locked = milestone < (tab.unlockMilestone ?? 0);
-				return <Chip key={tab.id} label={locked ? `🔒 ${tab.label} · Milestone ${tab.unlockMilestone}` : tab.label} disabled={locked} selected={tab.id === value} onPress={() => onChange(tab.id)} />;
+				return <Chip key={tab.id} label={locked ? `🔒 ${tab.label} · Milestone ${milestoneLabel(tab.unlockMilestone ?? 0)}` : tab.label} disabled={locked} selected={tab.id === value} onPress={() => onChange(tab.id)} />;
 			})}
 		</ScrollView>
 	);

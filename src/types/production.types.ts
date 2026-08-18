@@ -78,10 +78,11 @@ export interface UnlockRequirement {
 	resource?: ResourceId;
 }
 
-/** A reusable exponential value: base times growthFactor^amount. */
+/** A reusable growth value: geometric by default, or linear when explicitly requested. */
 export interface ExponentialGrowth {
 	base: DecimalSource;
 	growthFactor: DecimalSource;
+	growthMode?: 'geometric' | 'linear';
 }
 
 /** An exponential value paid from one specific spendable resource. */

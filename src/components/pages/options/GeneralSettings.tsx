@@ -64,6 +64,14 @@ export function GeneralSettings() {
 				<ToggleRow label="Brightness changes" value={app.weatherEffects.brightness} onChange={value => app.setWeatherEffect('brightness', value)} />
 				<ToggleRow label="Reverse icon order" detail="Reverses the orientation of production and world items." value={app.reverseItemLayout} onChange={app.setReverseItemLayout} />
 				<ToggleRow label="No Sprites Mode" detail="Uses a more minimal interface and turns on automatically for Lock-In." value={app.noSpritesMode} onChange={app.setNoSpritesMode} />
+				<ToggleRow label="News bar" detail="Shows rotating news and tips; later milestones unlock more entries." value={app.showNewsBar} onChange={app.setShowNewsBar} />
+			</Card>
+			<Card>
+				<SectionTitle title="Secondary panel" detail="Use the top-right button to switch information panels. Choose a horizontal strip or a neat multi-column layout." />
+				<View style={uiStyles.wrap}>
+					<Chip label="Across" selected={app.secondaryPanelLayout === 'horizontal'} onPress={() => app.setSecondaryPanelLayout('horizontal')} />
+					<Chip label="Columns" selected={app.secondaryPanelLayout === 'vertical'} onPress={() => app.setSecondaryPanelLayout('vertical')} />
+				</View>
 			</Card>
 			<Card accent="crimson">
 				<SectionTitle title="Game modes" detail={`Current: ${selectedMode.label}. Titanomachy compounds the Heart and harvest buffs; the Heart also affects Chaos Energy.`} />

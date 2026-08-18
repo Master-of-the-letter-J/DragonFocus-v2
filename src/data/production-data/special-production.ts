@@ -1,17 +1,18 @@
 import type { ClickerDefinition, SpecialGeneratorDefinition, UpgradeDefinition } from '@/types/production.types';
 
 export const CLICKERS: ClickerDefinition[] = [
-	{ id: 'bigger-clicks', name: 'Bigger Clicks', kind: 'clicker', description: 'Adds one Energy to every base dragon click.', costs: [{ resource: 'energy', base: '10', growthFactor: 1.2 }], maxLevel: 25, persistsOnArmageddon: true, persistsOnTranscension: true, effect: 'energy', value: 1 },
-	{ id: 'double-clicks', name: 'Double Clicks', kind: 'clicker', description: 'Doubles base dragon click Energy.', costs: [{ resource: 'energy', base: '50', growthFactor: 2 }], maxLevel: 5, persistsOnArmageddon: true, persistsOnTranscension: true, effect: 'energy-multiplier', value: 2 },
+	{ id: 'bigger-clicks', name: 'Bigger Clicks', kind: 'clicker', description: 'Adds +1 Energy to every base Dragon click.', costs: [{ resource: 'energy', base: '10', growthFactor: 1.2 }], maxLevel: 25, persistsOnArmageddon: true, persistsOnTranscension: true, effect: 'energy', value: 1 },
+	{ id: 'double-clicks', name: 'Double Clicks', kind: 'clicker', description: 'Multiplies base Dragon click Energy by ×2.', costs: [{ resource: 'energy', base: '50', growthFactor: 4 }], unlocks: [{ metric: 'owned-item', itemId: 'bigger-clicks', amount: 1 }], maxLevel: 5, persistsOnArmageddon: true, persistsOnTranscension: true, effect: 'energy-multiplier', value: 2 },
 	{
 		id: 'less-angry-clicks',
 		name: 'Less Angry Clicks',
 		kind: 'clicker',
-		description: 'Reduces click fury by 0.001 per level.',
+		description: 'Reduces click Anger by 0.001 per upgrade.',
 		costs: [
 			{ resource: 'energy', base: '25', growthFactor: 2 },
 			{ resource: 'darkEnergy', base: '5', growthFactor: 1.5 },
 		],
+		unlocks: [{ metric: 'owned-item', itemId: 'double-clicks', amount: 1 }],
 		maxLevel: 9,
 		persistsOnArmageddon: true,
 		persistsOnTranscension: true,
@@ -22,27 +23,29 @@ export const CLICKERS: ClickerDefinition[] = [
 		id: 'true-dragon-clicks',
 		name: 'True Dragon Clicks',
 		kind: 'clicker',
-		description: 'Adds 0.2 production ticks to every click.',
+		description: "Adds +0.2 production ticks to every Dragon click; these do not count as base production.",
 		costs: [
 			{ resource: 'energy', base: '100', growthFactor: 5 },
-			{ resource: 'darkEnergy', base: '10', growthFactor: 1 },
+			{ resource: 'darkEnergy', base: '10', growthFactor: 1, growthMode: 'linear' },
 		],
+		unlocks: [{ metric: 'owned-item', itemId: 'less-angry-clicks', amount: 1 }],
 		maxLevel: 5,
 		persistsOnArmageddon: true,
 		persistsOnTranscension: true,
 		effect: 'production-ticks',
 		value: 0.2,
 	},
-	{ id: 'gaias-gift', name: "Gaia's Gift", kind: 'clicker', description: 'Adds ten to the power of level Population to every click.', costs: [{ resource: 'energy', base: '5', growthFactor: 4 }], maxLevel: 9, persistsOnArmageddon: true, persistsOnTranscension: true, effect: 'population', value: 10 },
+	{ id: 'gaias-gift', name: "Gaia's Gift", kind: 'clicker', description: 'Adds +1 × 10^(upgrade level) Population to every Earth click.', costs: [{ resource: 'energy', base: '5', growthFactor: 4 }], maxLevel: 9, persistsOnArmageddon: true, persistsOnTranscension: true, effect: 'population', value: 10 },
 	{
 		id: 'un-worldly-clicks',
 		name: 'Un-Worldly Clicks',
 		kind: 'clicker',
-		description: 'Adds 0.2 population ticks to every click.',
+		description: "Adds +0.2 population ticks to every Earth click; these do not count as base production.",
 		costs: [
 			{ resource: 'energy', base: '150', growthFactor: 5 },
-			{ resource: 'darkEnergy', base: '15', growthFactor: 1 },
+			{ resource: 'darkEnergy', base: '15', growthFactor: 1, growthMode: 'linear' },
 		],
+		unlocks: [{ metric: 'owned-item', itemId: 'gaias-gift', amount: 1 }],
 		maxLevel: 5,
 		persistsOnArmageddon: true,
 		persistsOnTranscension: true,
@@ -50,6 +53,9 @@ export const CLICKERS: ClickerDefinition[] = [
 		value: 0.2,
 	},
 ];
+
+export const DRAGON_CLICKERS = CLICKERS.slice(0, 4);
+export const EARTH_CLICKERS = CLICKERS.slice(4);
 
 export const SPECIAL_GENERATORS: SpecialGeneratorDefinition[] = [
 	{

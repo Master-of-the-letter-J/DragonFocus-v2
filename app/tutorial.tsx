@@ -50,7 +50,7 @@ function SnackboxOdds() {
 				<Card key={box.id}>
 					<SectionTitle title={box.name} detail={`${box.shardCost.toLocaleString()} Shards · ${box.minimumRolls}–${box.maximumRolls} rolls${box.identicalRollBundle > 1 ? ` · ${box.identicalRollBundle} identical spells per roll` : ''}`} />
 					<OddsTable title="Standard chances" weights={box.standardWeights} />
-					<OddsTable title="With Hectate unlocked" weights={box.hectateWeights} />
+					<OddsTable title="With Hecate unlocked" weights={box.hecateWeights} />
 				</Card>
 			))}
 		</>

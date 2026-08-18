@@ -41,7 +41,7 @@ export function GoalBoard({ completed }: { completed: boolean }) {
 			<TabStrip tabs={GOAL_FILTERS} value={filter} onChange={setFilter} />
 			{!completed ?
 				<Card>
-					<SectionTitle title="Add a goal" detail="A compact creator for the everyday case. Full editing lives in check-in." />
+					<SectionTitle title="Add a goal" detail="A compact creator for the everyday case. Full editing lives inside either survey." />
 					<View style={styles.goalInputRow}>
 						<TextInput value={newGoal} onChangeText={setNewGoal} placeholder="What will you finish?" placeholderTextColor={colors.muted} style={styles.input} />
 						<ActionButton compact label="Add" disabled={!newGoal.trim()} onPress={() => store.addGoal({ title: newGoal, type: newType, category: newCategory }) && setNewGoal('')} />

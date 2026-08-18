@@ -13,13 +13,9 @@ type QuoteTopic = 'focus' | 'habits' | 'growth' | 'rest';
 type Suggestion = GoalSuggestion;
 
 const moodFuryReduction = (mood: string) => {
-	const high = new Set(['excited', 'surprised', 'shocked', 'enraged', 'disgusted', 'great']);
-	const medium = new Set(['fulfilled', 'calm', 'content', 'uneasy', 'confused', 'anxious', 'good', 'okay']);
-	return (
-		high.has(mood) ? 5
-		: medium.has(mood) ? 3
-		: 1
-	);
+	const high = new Set(['excited', 'surprised', 'shocked', 'enraged', 'disgusted']);
+	const medium = new Set(['fulfilled', 'calm', 'content', 'uneasy', 'confused', 'anxious']);
+	return high.has(mood) ? 5 : medium.has(mood) ? 3 : 1;
 };
 
 const select = <T>(items: readonly T[], count = 1) => [...items].sort(() => Math.random() - 0.5).slice(0, Math.max(1, count));
@@ -29,7 +25,17 @@ export interface SurveyResponse {
 	mood?: string;
 	goalsAdded: number;
 	goalsHarvested: number;
+	reflection?: string;
+	rewards?: SurveyRewardSummary;
 	completedAt: string;
+}
+
+export interface SurveyRewardSummary {
+	xp: string;
+	darkEnergy: string;
+	shards: string;
+	quarks: string;
+	furyReduction: string;
 }
 
 export interface SurveySession {
@@ -73,24 +79,38 @@ const initialState = () => ({
 });
 
 export const createSurveySlice: ProductivitySlice<'surveys'> = (set, get) => {
-	const { setSlice, getSlice } = scopeNestedSlice<import('./_useProductivityStore').ProductivityStoreState, 'surveys', SurveyStoreState>('surveys', set, get);
+	const { setSlice, getSlice, getRoot } = scopeNestedSlice<import('./_useProductivityStore').ProductivityStoreState, 'surveys', SurveyStoreState>('surveys', set, get);
 
 	return {
 		surveys: {
 			...initialState(),
 			completeCheckIn: response => {
-				if (getSlice().checkInCompleted) return;
+				const current = getSlice();
+				const previousCheckIn = current.activeSession.checkIn;
+				const startsNewCycle = current.checkOutCompleted;
 				const completedAt = new Date().toISOString();
 				const mood = response?.mood;
+				if (previousCheckIn?.mood) useWorldStore.getState().resourceStore.addResource('fury', moodFuryReduction(previousCheckIn.mood));
 				if (mood) useWorldStore.getState().resourceStore.addResource('fury', -moodFuryReduction(mood));
-				useProductionStore.getState().updateUnlockState({ checkInCompleted: true });
-				useStatsStore.getState().recordSurvey('check-in');
+				if (!previousCheckIn || startsNewCycle) {
+					useProductionStore.getState().updateUnlockState({ checkInCompleted: true });
+					useStatsStore.getState().recordSurvey('check-in');
+				}
+				const checkIn: SurveyResponse = {
+					mood,
+					goalsAdded: response?.goalsAdded ?? previousCheckIn?.goalsAdded ?? 0,
+					goalsHarvested: 0,
+					reflection: response?.reflection,
+					completedAt,
+				};
 				setSlice(state => ({
 					checkInCompleted: true,
+					checkOutCompleted: false,
 					checkOutAvailable: true,
-					checkInStreak: state.checkInStreak + 1,
-					activeSession: { ...state.activeSession, checkIn: { mood, goalsAdded: response?.goalsAdded ?? state.activeSession.checkIn?.goalsAdded ?? 0, goalsHarvested: 0, completedAt } },
+					checkInStreak: previousCheckIn && !startsNewCycle ? state.checkInStreak : state.checkInStreak + 1,
+					activeSession: startsNewCycle ? { ...newSession(), checkIn } : { ...state.activeSession, checkIn },
 				}));
+				getRoot().goals.completeSpecialHabit('survey-check-in');
 			},
 			completeCheckOut: (response, allowWithoutCheckIn = false) => {
 				if ((!getSlice().checkOutAvailable && !allowWithoutCheckIn) || getSlice().checkOutCompleted) return false;
@@ -102,7 +122,7 @@ export const createSurveySlice: ProductivitySlice<'surveys'> = (set, get) => {
 				setSlice(state => {
 					const completedSession: SurveySession = {
 						...state.activeSession,
-						checkOut: { mood, goalsAdded: 0, goalsHarvested: response?.goalsHarvested ?? state.activeSession.checkOut?.goalsHarvested ?? 0, completedAt },
+						checkOut: { mood, goalsAdded: 0, goalsHarvested: response?.goalsHarvested ?? state.activeSession.checkOut?.goalsHarvested ?? 0, reflection: response?.reflection, rewards: response?.rewards, completedAt },
 					};
 					return {
 						checkOutCompleted: true,
@@ -112,6 +132,7 @@ export const createSurveySlice: ProductivitySlice<'surveys'> = (set, get) => {
 						archived: [completedSession, ...state.archived],
 					};
 				});
+				getRoot().goals.completeSpecialHabit('survey-check-out');
 				return true;
 			},
 			// A streak advances only when its matching survey was completed that day.

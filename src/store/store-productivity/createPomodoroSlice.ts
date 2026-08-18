@@ -88,7 +88,7 @@ const fillCrimsonHeartForPomodoro = () => {
 };
 
 export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = (set, get) => {
-	const { setSlice, getSlice } = scopeNestedSlice<import('./_useProductivityStore').ProductivityStoreState, 'pomodoro', PomodoroStoreState>('pomodoro', set, get);
+	const { setSlice, getSlice, getRoot } = scopeNestedSlice<import('./_useProductivityStore').ProductivityStoreState, 'pomodoro', PomodoroStoreState>('pomodoro', set, get);
 
 	return {
 		pomodoro: {
@@ -136,6 +136,9 @@ export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = (set, get) => 
 					pomodoroHabitStreak: session.completed ? current.pomodoroHabitStreak + 1 : current.pomodoroHabitStreak,
 					lastCompletedSessionSeconds: session.completed ? session.seconds : current.lastCompletedSessionSeconds,
 				}));
+				if (session.completed) {
+					(['pomodoro-30-seconds', 'pomodoro-15-minutes', 'pomodoro-30-minutes', 'pomodoro-45-minutes', 'pomodoro-60-minutes'] as const).forEach(kind => getRoot().goals.completeSpecialHabit(kind));
+				}
 				return session;
 			},
 			startBreak: kind => {

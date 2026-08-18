@@ -26,5 +26,5 @@ export const DEITIES: PantheonDefinition[] = [
 	deity('hermes', 'Hermes', 'Unlocks and improves production cost discounts.', 'discount', 0.1, '3', 1.2),
 	deity('dionysus', 'Dionysus', 'Multiplies all Deity effects while any streak is active.', 'deity-streak', 1.1, '4', 1.5),
 	deity('hestia', 'Hestia', 'Extends the frozen-streak repair window by 12 hours per level.', 'streak-window', 12, '5', 2),
-	deity('hectate', 'Hectate', 'Doubles Spell Luck per level, improves Snackbox odds, unlocks Divine spell rarities, and multiplies created spell effects by twice her level.', 'spell-luck', 2, '1', 1.75),
+	deity('hecate', 'Hecate', 'Doubles Spell Luck per level, improves Snackbox odds, unlocks Divine spell rarities, and multiplies created spell effects by twice her level.', 'spell-luck', 2, '1', 1.75),
 ];

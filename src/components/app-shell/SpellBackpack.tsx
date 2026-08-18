@@ -60,7 +60,7 @@ const formatTime = (seconds: number) =>
 		.padStart(2, '0')}`;
 
 const styles = StyleSheet.create({
-	backpack: { height: 42, minWidth: 42, justifyContent: 'center', alignItems: 'center' },
+	backpack: { height: 48, minWidth: 52, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, borderLeftColor: colors.line, backgroundColor: colors.surfaceRaised },
 	backpackIcon: { fontSize: 19 },
 	count: { position: 'absolute', right: 1, top: 1, color: colors.ink, backgroundColor: colors.crimson, borderRadius: 99, minWidth: 17, paddingHorizontal: 3, textAlign: 'center', fontSize: 9, fontFamily: appFonts.bold },
 	scrim: { flex: 1, backgroundColor: '#050308DD', justifyContent: 'flex-end' },

@@ -16,6 +16,7 @@ export const styles = StyleSheet.create({
 	tableCard: { padding: 0, overflow: 'hidden' },
 	tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.line },
 	cell: { width: 116, color: colors.ink, fontFamily: appFonts.regular, fontSize: 11, padding: space.md },
+	noteCell: { width: 220, color: colors.ink, fontFamily: appFonts.regular, fontSize: 11, padding: space.md },
 	headerCell: { color: colors.gold, fontFamily: appFonts.bold, backgroundColor: colors.canvasRaised },
 	achievementGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
 	achievement: { width: '23%', minWidth: 78, flexGrow: 1, minHeight: 135, backgroundColor: colors.surface, borderColor: colors.line, borderWidth: 1, borderRadius: radius.medium, padding: space.sm, gap: 5 },

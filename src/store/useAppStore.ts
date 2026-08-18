@@ -40,7 +40,10 @@ export interface AppStoreState {
 	musicVolume: number;
 	brightness: number;
 	requireDailyCheckIn: boolean;
+	requireDailyCheckOut: boolean;
 	reverseItemLayout: boolean;
+	secondaryPanelLayout: 'horizontal' | 'vertical';
+	showNewsBar: boolean;
 	backgroundStyle: 'nexus' | 'ember' | 'void';
 	dragonCosmetic: 'classic' | 'ember' | 'astral';
 	weatherEffects: { rain: boolean; tremors: boolean; brightness: boolean };
@@ -55,7 +58,10 @@ export interface AppStoreState {
 	setMusicVolume: (volume: number) => void;
 	setBrightness: (brightness: number) => void;
 	setRequireDailyCheckIn: (required: boolean) => void;
+	setRequireDailyCheckOut: (required: boolean) => void;
 	setReverseItemLayout: (reversed: boolean) => void;
+	setSecondaryPanelLayout: (layout: AppStoreState['secondaryPanelLayout']) => void;
+	setShowNewsBar: (enabled: boolean) => void;
 	setBackgroundStyle: (background: AppStoreState['backgroundStyle']) => void;
 	setDragonCosmetic: (cosmetic: AppStoreState['dragonCosmetic']) => void;
 	setWeatherEffect: (effect: keyof AppStoreState['weatherEffects'], enabled: boolean) => void;
@@ -106,7 +112,10 @@ const createAppPreferencesSlice: AppSlice<
 	| 'musicVolume'
 	| 'brightness'
 	| 'requireDailyCheckIn'
+	| 'requireDailyCheckOut'
 	| 'reverseItemLayout'
+	| 'secondaryPanelLayout'
+	| 'showNewsBar'
 	| 'backgroundStyle'
 	| 'dragonCosmetic'
 	| 'weatherEffects'
@@ -121,7 +130,10 @@ const createAppPreferencesSlice: AppSlice<
 	| 'setMusicVolume'
 	| 'setBrightness'
 	| 'setRequireDailyCheckIn'
+	| 'setRequireDailyCheckOut'
 	| 'setReverseItemLayout'
+	| 'setSecondaryPanelLayout'
+	| 'setShowNewsBar'
 	| 'setBackgroundStyle'
 	| 'setDragonCosmetic'
 	| 'setWeatherEffect'
@@ -140,7 +152,10 @@ const createAppPreferencesSlice: AppSlice<
 	musicVolume: 0.5,
 	brightness: 1,
 	requireDailyCheckIn: true,
+	requireDailyCheckOut: false,
 	reverseItemLayout: false,
+	secondaryPanelLayout: 'horizontal',
+	showNewsBar: true,
 	backgroundStyle: 'nexus',
 	dragonCosmetic: 'classic',
 	weatherEffects: { rain: false, tremors: false, brightness: false },
@@ -155,7 +170,10 @@ const createAppPreferencesSlice: AppSlice<
 	setMusicVolume: musicVolume => set({ musicVolume: Math.max(0, Math.min(1, musicVolume)) }),
 	setBrightness: brightness => set({ brightness: Math.max(0.5, Math.min(1.2, brightness)) }),
 	setRequireDailyCheckIn: requireDailyCheckIn => set({ requireDailyCheckIn }),
+	setRequireDailyCheckOut: requireDailyCheckOut => set({ requireDailyCheckOut }),
 	setReverseItemLayout: reverseItemLayout => set({ reverseItemLayout }),
+	setSecondaryPanelLayout: secondaryPanelLayout => set({ secondaryPanelLayout }),
+	setShowNewsBar: showNewsBar => set({ showNewsBar }),
 	setBackgroundStyle: backgroundStyle => set({ backgroundStyle }),
 	setDragonCosmetic: dragonCosmetic => set({ dragonCosmetic }),
 	setWeatherEffect: (effect, enabled) => set(state => ({ weatherEffects: { ...state.weatherEffects, [effect]: enabled } })),
@@ -182,7 +200,7 @@ const createAppResetSlice: AppSlice<'resetEverything'> = set => ({
 		usePremiumStore.getState().reset();
 		useDevelopmentStore.getState().temporaryCheats.reset();
 		await AsyncStorage.multiRemove(storageKeys);
-		set({ version: 5, hasEntered: false, startedAt: undefined, theme: 'system', autoHarvest: false, soundEffectsVolume: 0.8, musicVolume: 0.5, brightness: 1, requireDailyCheckIn: true, reverseItemLayout: false, backgroundStyle: 'nexus', dragonCosmetic: 'classic', weatherEffects: { rain: false, tremors: false, brightness: false }, noSpritesMode: false, numberFormat: 'expanded-short', lastOpenedAt: new Date().toISOString(), seenGovernmentLogIds: [] });
+		set({ version: 5, hasEntered: false, startedAt: undefined, theme: 'system', autoHarvest: false, soundEffectsVolume: 0.8, musicVolume: 0.5, brightness: 1, requireDailyCheckIn: true, requireDailyCheckOut: false, reverseItemLayout: false, secondaryPanelLayout: 'horizontal', showNewsBar: true, backgroundStyle: 'nexus', dragonCosmetic: 'classic', weatherEffects: { rain: false, tremors: false, brightness: false }, noSpritesMode: false, numberFormat: 'expanded-short', lastOpenedAt: new Date().toISOString(), seenGovernmentLogIds: [] });
 	},
 });
 

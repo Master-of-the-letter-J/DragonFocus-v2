@@ -9,15 +9,15 @@ export const TUTORIAL_CHAPTERS = [
 		body: ['Energy = producer output × amplification × goal multiplier × other multipliers.', 'Amplification begins at ×1, so producers always retain base output.', 'Difficulty acts through Crimson Heart behavior rather than duplicated production and population multipliers.'],
 	},
 	{ id: 'prestige', label: 'Prestige', title: 'Destroy a run to deepen it', body: ['Armageddon turns accumulated Energy into Plasma.', 'Transcension trades deeper progress for Dark Plasma and Anomalies.', 'Apocalypse effects upgrade independently and combine in their reward calculation.'] },
-	{ id: 'special', label: 'Special Features', title: 'Pantheons, spells, and Titanomachy', body: ['Hectate improves spell luck and unlocks Divine Snackbox rarities.', 'Fuelable shrines are independent of Crimson Heart and spells.', 'Titanomachy is a high-risk accord that ends when its prerequisites fail.'] },
+	{ id: 'special', label: 'Special Features', title: 'Pantheons, spells, and Titanomachy', body: ['Hecate improves spell luck and unlocks Divine Snackbox rarities.', 'Fuelable shrines are independent of Crimson Heart and spells.', 'Titanomachy is a high-risk accord that ends when its prerequisites fail.'] },
 	{
 		id: 'snackboxes',
 		label: 'Snackbox Chances',
 		title: 'Know every spell chance',
 		body: [
-			'Each listed percentage is the chance for one roll before Hectate luck is applied.',
-			'Hectate uses the disclosed Hectate table and biases rolls toward higher rarities through ×2 Spell Luck per level.',
-			'Divine I and Divine II are exclusive to Hectate-enabled Snackboxes. Impossible and Infinity appear without Hectate only where standard odds list them.',
+			'Each listed percentage is the chance for one roll before Hecate luck is applied.',
+			'Hecate uses the disclosed Hecate table and biases rolls toward higher rarities through ×2 Spell Luck per level.',
+			'Divine I and Divine II are exclusive to Hecate-enabled Snackboxes. Impossible and Infinity appear without Hecate only where standard odds list them.',
 		],
 	},
 ] as const;

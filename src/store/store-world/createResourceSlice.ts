@@ -23,6 +23,8 @@ export interface ResourceStoreState {
 	dragon: DragonState;
 	populationDead: ReturnType<typeof decimal>;
 	addResource: (resource: ResourceId, amount: DecimalSource, generated?: boolean) => void;
+	/** Adds a conversion result without counting it as newly earned currency. */
+	addConvertedResource: (resource: ResourceId, amount: DecimalSource) => void;
 	spendResource: (resource: SpendableResourceId, amount: DecimalSource) => boolean;
 	setResource: (resource: ResourceId, amount: DecimalSource) => void;
 	getNonGeneratedThisTranscension: (resource: ResourceId) => ReturnType<typeof decimal>;
@@ -71,6 +73,14 @@ export const createResourceSlice: WorldSlice<'resourceStore'> = (set, get) => {
 						totalAllTime: { ...state.totalAllTime, [resource]: state.totalAllTime[resource].plus(gain) },
 						generatedThisTranscension: generated ? { ...state.generatedThisTranscension, [resource]: state.generatedThisTranscension[resource].plus(gain) } : state.generatedThisTranscension,
 					};
+				});
+			},
+			addConvertedResource: (resource, amount) => {
+				const gain = decimal(amount);
+				if (gain.eq(0)) return;
+				setSlice(state => {
+					const resources = { ...state.resources, [resource]: state.resources[resource].plus(gain) };
+					return { resources, dragon: resource === 'fury' ? { ...state.dragon, fury: resources.fury } : state.dragon };
 				});
 			},
 			spendResource: (resource, amount) => {

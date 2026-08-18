@@ -1,17 +1,21 @@
 /** Navigation metadata for the Lair route. */
 export const LAIR_TABS = [
 	{ id: 'nexus', label: "Dragon's Nexus", unlockMilestone: 0 },
+	{ id: 'heart', label: 'Crimson Heart', unlockMilestone: 0.25 },
 	{ id: 'production', label: 'Energy Production', unlockMilestone: 0.25 },
-	{ id: 'upgrades', label: 'Dark Energy', unlockMilestone: 0.5 },
 	{ id: 'prestige', label: 'Prestige & Deities', unlockMilestone: 5 },
+	{ id: 'special', label: 'Special Production', unlockMilestone: 5 },
+	{ id: 'upgrades', label: 'Energy Upgrades', unlockMilestone: 0.5 },
 ] as const;
 
 export const PRODUCTION_TABS = [
-	{ id: 'heart', label: 'Crimson Heart', unlockMilestone: 0.25 },
 	{ id: 'producers', label: 'Production', unlockMilestone: 0.25 },
 	{ id: 'amplifiers', label: 'Amplifiers', unlockMilestone: 1 },
 	{ id: 'goals', label: 'Goal Multipliers', unlockMilestone: 2 },
-	{ id: 'special', label: 'Special Generation', unlockMilestone: 5 },
+] as const;
+
+export const SPECIAL_PRODUCTION_TABS = [
+	{ id: 'generation', label: 'Special Generation', unlockMilestone: 5 },
 	{ id: 'incinerator', label: 'Incinerator', unlockMilestone: 5 },
 	{ id: 'convertor', label: 'Convertor', unlockMilestone: 5 },
 ] as const;
@@ -35,5 +39,6 @@ export const PRESTIGE_TABS = [
 
 export type LairTab = (typeof LAIR_TABS)[number]['id'];
 export type ProductionTab = (typeof PRODUCTION_TABS)[number]['id'];
+export type SpecialProductionTab = (typeof SPECIAL_PRODUCTION_TABS)[number]['id'];
 export type UpgradeTab = (typeof UPGRADE_TABS)[number]['id'];
 export type PrestigeTab = (typeof PRESTIGE_TABS)[number]['id'];

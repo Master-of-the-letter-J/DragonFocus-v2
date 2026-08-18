@@ -7,7 +7,7 @@ import { DRAGON_PACT_BENEFITS, DRAGON_PACT_PRODUCTS } from '@/data/premium-data/
 import { ACHIEVEMENTS } from '@/data/statistics-data/achievements';
 import { FIXED_MARKET_BUNDLES, REWARDED_SHARD_AD, SHARD_PACKS } from '@/data/world-data/black-market';
 import { GOVERNMENT_LOGS } from '@/data/world-data/government-logs';
-import { milestoneForEnergy } from '@/data/world-data/milestones';
+import { milestoneForEnergy, milestoneLabel } from '@/data/world-data/milestones';
 import { SPELL_SNACKBOXES } from '@/data/world-data/spell-snackboxes';
 import { usePremiumStore } from '@/store/store-premium/_usePremiumStore';
 import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
@@ -21,6 +21,8 @@ import { ScrollView, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 const { colors } = dragonTheme;
+const ARCHIVE_MOOD_EMOJIS: Record<string, string> = { excited: '🤩', surprised: '😲', shocked: '😳', enraged: '😡', disgusted: '🤢', fulfilled: '😊', calm: '😌', content: '🙂', uneasy: '😟', confused: '😕', anxious: '😰', serene: '😌', sleepy: '😴', bored: '😐', drained: '🥱', despair: '😞', great: '🤩', good: '🙂', okay: '😐', meh: '😕', down: '🙁', sad: '😢', angry: '😠' };
+const archiveMood = (mood?: string) => mood ? `${ARCHIVE_MOOD_EMOJIS[mood] ?? '💭'} ${mood.replace(/\b\w/g, character => character.toUpperCase())}` : '—';
 export default function ArchivesRoute() {
 	const params = useLocalSearchParams<{ tab?: ArchiveTab }>();
 	const [tab, setTab] = useState<ArchiveTab>(ARCHIVE_TABS.some(candidate => candidate.id === params.tab) ? params.tab! : 'pact');
@@ -179,7 +181,7 @@ function Chronicles() {
 					<ScrollView horizontal showsHorizontalScrollIndicator>
 						<View>
 							<View style={styles.tableRow}>
-								{['Date', 'Mood in', 'Mood out', 'Goals added', 'Harvested'].map(column => (
+								{['Date', 'Mood in', 'Mood out', 'Goals added', 'Harvested', 'XP', 'Dark Energy', 'Shards', 'Quarks', 'Fury reduced', 'Notes'].map(column => (
 									<Text key={column} style={[styles.cell, styles.headerCell]}>
 										{column}
 									</Text>
@@ -188,10 +190,16 @@ function Chronicles() {
 							{sessions.map(session => (
 								<View key={session.id} style={styles.tableRow}>
 									<Text style={styles.cell}>{session.date}</Text>
-									<Text style={styles.cell}>{session.checkIn?.mood ?? '—'}</Text>
-									<Text style={styles.cell}>{session.checkOut?.mood ?? '—'}</Text>
+									<Text style={styles.cell}>{archiveMood(session.checkIn?.mood)}</Text>
+									<Text style={styles.cell}>{archiveMood(session.checkOut?.mood)}</Text>
 									<Text style={styles.cell}>{session.checkIn?.goalsAdded ?? 0}</Text>
 									<Text style={styles.cell}>{session.checkOut?.goalsHarvested ?? 0}</Text>
+									<Text style={styles.cell}>{formatDecimal(session.checkOut?.rewards?.xp ?? 0)}</Text>
+									<Text style={styles.cell}>{formatDecimal(session.checkOut?.rewards?.darkEnergy ?? 0)}</Text>
+									<Text style={styles.cell}>{formatDecimal(session.checkOut?.rewards?.shards ?? 0)}</Text>
+									<Text style={styles.cell}>{formatDecimal(session.checkOut?.rewards?.quarks ?? 0)}</Text>
+									<Text style={styles.cell}>{formatDecimal(session.checkOut?.rewards?.furyReduction ?? 0)}</Text>
+									<Text numberOfLines={2} style={styles.noteCell}>{session.checkOut?.reflection ?? session.checkIn?.reflection ?? '—'}</Text>
 								</View>
 							))}
 						</View>
@@ -288,7 +296,7 @@ function SecretLogs() {
 			</Card>
 			{logs.map(log => (
 				<Card key={log.id} accent="violet">
-					<SectionTitle title={`⌾ ${log.title}`} detail={`Declassified at Milestone ${log.milestone}`} />
+					<SectionTitle title={`⌾ ${log.title}`} detail={`Declassified at Milestone ${milestoneLabel(log.milestone)}`} />
 					<Text style={uiStyles.body}>{log.body}</Text>
 				</Card>
 			))}

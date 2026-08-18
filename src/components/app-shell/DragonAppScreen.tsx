@@ -1,12 +1,11 @@
 import { EffectsPanel } from '@/components/app-shell/EffectsPanel';
+import { NewsBar } from '@/components/app-shell/NewsBar';
+import { PrimaryMetricsPanel } from '@/components/app-shell/PrimaryMetricsPanel';
 import { SecondaryPanel, type PanelMode } from '@/components/app-shell/SecondaryPanel';
-import { SpellBackpack } from '@/components/app-shell/SpellBackpack';
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { milestoneForEnergy } from '@/data/world-data/milestones';
-import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { useAppStore } from '@/store/useAppStore';
-import { formatDecimal } from '@/utils/decimal';
 import { router } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
@@ -29,21 +28,19 @@ const menuItems = [
 ] as const;
 
 const panelChoices: { id: PanelMode; label: string }[] = [
-	{ id: 'dragon', label: 'Dragon' },
+	{ id: 'world', label: 'World' },
+	{ id: 'population', label: 'Population' },
 	{ id: 'goals', label: 'Goals' },
 	{ id: 'resources', label: 'Resources' },
-	{ id: 'prestige', label: 'Prestige' },
 	{ id: 'spells', label: 'Spells' },
-	{ id: 'population', label: 'Population' },
 ];
 
 export function DragonAppScreen({ title, panel, effects = false, children, scrollProps }: PropsWithChildren<{ title: string; panel: PanelMode; effects?: boolean; scrollProps?: ScrollViewProps }>) {
-	const shards = useWorldStore(state => state.resourceStore.resources.shards);
 	const totalEnergy = useWorldStore(state => state.resourceStore.totalAllTime.energy);
-	const spellCount = useProductionSpecialStore(state => state.spells.spellInventory.length);
 	const backgroundStyle = useAppStore(state => state.backgroundStyle);
 	const brightness = useAppStore(state => state.brightness);
 	const weatherEffects = useAppStore(state => state.weatherEffects);
+	const showNewsBar = useAppStore(state => state.showNewsBar);
 	const spellsUnlocked = milestoneForEnergy(totalEnergy) >= 3;
 	const tremor = useSharedValue(0);
 	const brightnessPulse = useSharedValue(0);
@@ -74,21 +71,18 @@ export function DragonAppScreen({ title, panel, effects = false, children, scrol
 				<Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={() => setMenuOpen(true)} style={styles.iconButton}>
 					<Text style={styles.icon}>☰</Text>
 				</Pressable>
-				<Text numberOfLines={1} style={styles.headerTitle}>
-					{title}
-				</Text>
+				<View pointerEvents="none" style={styles.headerCenter}>
+					<Text numberOfLines={1} style={styles.headerTitle}>{title}</Text>
+				</View>
 				<View style={styles.headerRight}>
-					<View style={styles.shards}>
-						<Text style={styles.shardMark}>◆</Text>
-						<Text style={styles.shardValue}>{formatDecimal(shards)}</Text>
-					</View>
-					{spellsUnlocked || spellCount > 0 ? <SpellBackpack /> : null}
-					<Pressable accessibilityRole="button" accessibilityLabel="Change information panel" onPress={() => setPanelOpen(true)} style={styles.iconButton}>
-						<Text style={styles.panelIcon}>◫</Text>
+					<Pressable accessibilityRole="button" accessibilityLabel="Configure information panel" onPress={() => setPanelOpen(true)} style={styles.iconButton}>
+						<Text style={styles.panelIcon}>⚙</Text>
 					</Pressable>
 				</View>
 			</Animated.View>
-			<SecondaryPanel mode={panelMode} onPress={() => setPanelOpen(true)} />
+			<SecondaryPanel mode={panelMode} />
+			<PrimaryMetricsPanel />
+			{showNewsBar ? <NewsBar milestone={milestoneForEnergy(totalEnergy)} /> : null}
 			{spellsUnlocked || effects ?
 				<EffectsPanel />
 			:	null}
@@ -151,15 +145,13 @@ function MenuModal({ visible, title, onClose, children }: PropsWithChildren<{ vi
 
 const styles = StyleSheet.create({
 	safe: { flex: 1, backgroundColor: colors.canvas },
-	header: { height: 58, backgroundColor: colors.canvasRaised, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.md, borderBottomWidth: 1, borderBottomColor: colors.line, gap: space.sm },
+	header: { minHeight: 58, backgroundColor: colors.canvasRaised, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, borderBottomWidth: 1, borderBottomColor: colors.line },
 	iconButton: { height: 42, minWidth: 42, borderRadius: radius.medium, justifyContent: 'center', alignItems: 'center' },
 	icon: { color: colors.ink, fontSize: 22 },
-	panelIcon: { color: colors.gold, fontSize: 20 },
-	headerTitle: { flex: 1, textAlign: 'center', color: colors.ink, fontFamily: appFonts.bold, fontSize: 17 },
-	headerRight: { flexDirection: 'row', alignItems: 'center' },
-	shards: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.goldSoft, paddingHorizontal: 9, paddingVertical: 6, borderRadius: radius.pill },
-	shardMark: { color: colors.gold, fontSize: 11 },
-	shardValue: { color: '#FFE3A2', fontFamily: appFonts.semibold, fontSize: 11, maxWidth: 54 },
+	panelIcon: { color: colors.gold, fontSize: 28 },
+	headerCenter: { position: 'absolute', top: 0, right: 64, bottom: 0, left: 64, alignItems: 'center', justifyContent: 'center' },
+	headerTitle: { color: colors.ink, fontFamily: appFonts.bold, fontSize: 17, textAlign: 'center' },
+	headerRight: { flexDirection: 'row', alignItems: 'center', zIndex: 1 },
 	content: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: 120 },
 	contentInner: { width: '100%', maxWidth: 820, alignSelf: 'center', gap: space.lg },
 	scrim: { flex: 1, backgroundColor: '#050308D9', justifyContent: 'flex-end' },

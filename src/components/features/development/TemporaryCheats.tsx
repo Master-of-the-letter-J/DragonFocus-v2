@@ -72,7 +72,7 @@ export function TemporaryCheats() {
 			setNotice('Crimson Heart percentage needs a valid number.');
 			return;
 		}
-		const percent = Math.max(0, Math.min(100, value));
+		const percent = Math.max(0, value);
 		cheats.setCrimsonHeartOnAppPercent(percent);
 		setHeartPercent(`${percent}`);
 		setNotice(`Crimson Heart target while on Dragon Focus set to ${percent}%.`);
@@ -141,7 +141,7 @@ export function TemporaryCheats() {
 
 			<View pointerEvents={cheats.enabled ? 'auto' : 'none'} style={[styles.cheatGroup, !cheats.enabled && styles.disabledGroup]}>
 				<Card accent="gold">
-					<SectionTitle title="Crimson Heart" detail="Adjust the target Heart charge while actively using Dragon Focus. Accepted range: 0–100%." />
+					<SectionTitle title="Crimson Heart" detail="Adjust the target Heart charge while actively using Dragon Focus. 100% is the default Pomodoro maximum; anomaly upgrades can raise it. Enter any non-negative percentage." />
 					<NumericInput label="On Dragon Focus" value={heartPercent} onChange={setHeartPercent} suffix="%" onApply={applyHeartPercent} />
 				</Card>
 

@@ -25,6 +25,7 @@ export default function FocusSessionRoute() {
 	const pomodoro = useProductivityStore(state => state.pomodoro);
 	const heart = useProductionSpecialStore(state => state.crimsonHeart.charge);
 	const maximumHeart = useProductionSpecialStore(state => state.crimsonHeart.getMaximumCharge());
+	const heartPercent = Math.max(0, heart);
 	const [timerHidden, setTimerHidden] = useState(mode === 'wall');
 	const [controlsHidden, setControlsHidden] = useState(false);
 	const glow = useSharedValue(0.25);
@@ -54,14 +55,15 @@ export default function FocusSessionRoute() {
 				<Animated.View entering={FadeIn.duration(450)} style={[styles.glow, glowStyle]} />
 				<View style={styles.heart}>
 					<Text style={styles.heartGlyph}>♥</Text>
-					<Text style={styles.heartText}>{heart.toFixed(1)}%</Text>
+					<Text style={styles.heartText}>{heartPercent.toFixed(1)}%</Text>
+					<Text style={styles.heartChargeDetail}>{heart.toFixed(1)} / {maximumHeart.toFixed(0)} charge</Text>
 				</View>
 				{!timerHidden ?
 					<Text style={styles.timer}>{formatClock(seconds)}</Text>
 				:	<Text style={styles.hiddenMessage}>{mode === 'wall' ? 'Look away from the screen.' : 'Timer hidden'}</Text>}
 				<Text style={styles.detail}>{copy.detail}</Text>
 				<View style={styles.heartBar}>
-					<ProgressBar value={heart} max={maximumHeart} color={colors.crimsonBright} label={`Crimson Heart · max ${maximumHeart.toFixed(0)}%`} />
+					<ProgressBar value={heart} max={maximumHeart} color={colors.crimsonBright} label={`Crimson Heart · ${heartPercent.toFixed(1)}%`} />
 				</View>
 				{!controlsHidden ?
 					<Card style={styles.controls}>

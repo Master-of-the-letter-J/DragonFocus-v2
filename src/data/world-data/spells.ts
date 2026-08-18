@@ -56,4 +56,4 @@ export const createSpell = (type: SpellType, size: SpellSize, id = `spell-${Date
 
 export const spellSellValue = (size: SpellSize) => SPELL_SIZES[size - 1].sellShards;
 
-export const getSpellLuckMultiplier = (hectateLevel: number) => Math.pow(2, Math.max(0, Math.floor(hectateLevel)));
+export const getSpellLuckMultiplier = (hecateLevel: number) => Math.pow(2, Math.max(0, Math.floor(hecateLevel)));
