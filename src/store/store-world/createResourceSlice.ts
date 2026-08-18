@@ -23,6 +23,7 @@ export interface ResourceStoreState {
 	dragon: DragonState;
 	populationDead: ReturnType<typeof decimal>;
 	addResource: (resource: ResourceId, amount: DecimalSource, generated?: boolean) => void;
+	addResources: (amounts: Partial<Record<ResourceId, DecimalSource>>, generated?: boolean) => void;
 	/** Adds a conversion result without counting it as newly earned currency. */
 	addConvertedResource: (resource: ResourceId, amount: DecimalSource) => void;
 	spendResource: (resource: SpendableResourceId, amount: DecimalSource) => boolean;
@@ -72,6 +73,34 @@ export const createResourceSlice: WorldSlice<'resourceStore'> = (set, get) => {
 						totalThisTranscension: { ...state.totalThisTranscension, [resource]: state.totalThisTranscension[resource].plus(gain) },
 						totalAllTime: { ...state.totalAllTime, [resource]: state.totalAllTime[resource].plus(gain) },
 						generatedThisTranscension: generated ? { ...state.generatedThisTranscension, [resource]: state.generatedThisTranscension[resource].plus(gain) } : state.generatedThisTranscension,
+					};
+				});
+			},
+			addResources: (amounts, generated = false) => {
+				const gains = Object.entries(amounts)
+					.map(([resource, amount]) => [resource as ResourceId, decimal(amount ?? 0)] as const)
+					.filter(([, gain]) => !gain.eq(0));
+				if (!gains.length) return;
+				setSlice(state => {
+					const resources = { ...state.resources };
+					const totalThisArmageddon = { ...state.totalThisArmageddon };
+					const totalThisTranscension = { ...state.totalThisTranscension };
+					const totalAllTime = { ...state.totalAllTime };
+					const generatedThisTranscension = generated ? { ...state.generatedThisTranscension } : state.generatedThisTranscension;
+					for (const [resource, gain] of gains) {
+						resources[resource] = resources[resource].plus(gain);
+						totalThisArmageddon[resource] = totalThisArmageddon[resource].plus(gain);
+						totalThisTranscension[resource] = totalThisTranscension[resource].plus(gain);
+						totalAllTime[resource] = totalAllTime[resource].plus(gain);
+						if (generated) generatedThisTranscension[resource] = generatedThisTranscension[resource].plus(gain);
+					}
+					return {
+						resources,
+						totalThisArmageddon,
+						totalThisTranscension,
+						totalAllTime,
+						generatedThisTranscension,
+						dragon: amounts.fury === undefined ? state.dragon : { ...state.dragon, fury: resources.fury },
 					};
 				});
 			},

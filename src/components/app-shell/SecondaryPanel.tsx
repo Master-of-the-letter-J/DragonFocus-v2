@@ -1,4 +1,5 @@
 import { spellSizeIcon } from '@/components/app-shell/spell-icons';
+import { PrimaryMetricsPanel } from '@/components/app-shell/PrimaryMetricsPanel';
 import { displayFuryStage } from '@/components/ui/fury-display';
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { WORLD_CONSTANTS } from '@/constants/world.constants';
@@ -12,9 +13,8 @@ import { useProductionSpecialStore } from '@/store/store-production-special/_use
 import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
 import { useAppStore } from '@/store/useAppStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
-import type { Goal } from '@/types/goals.types';
 import type { AppActivity } from '@/types/world.types';
-import { decimal, formatDecimal } from '@/utils/decimal';
+import { formatDecimal } from '@/utils/decimal';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
@@ -33,7 +33,6 @@ const RESOURCE_TILES: readonly PanelEntry[] = [
 	{ id: 'darkPlasma', label: 'Dark Plasma', icon: '◌', color: colors.violet, description: 'A permanent Transcension currency used for the deepest production, monument, and prestige upgrades.' },
 	{ id: 'anomaly', label: 'Anomaly', icon: '⌁', color: colors.blue, description: 'A persistent deep-progression currency earned through Transcension and spent on Titans, Deities, Forges, and respec powers.' },
 	{ id: 'chaosEnergy', label: 'Chaos Energy', icon: '✦', color: colors.crimsonBright, description: 'Primordial energy produced through Titan systems. It strengthens several late-game multipliers and growth effects.' },
-	{ id: 'shards', label: 'Shards', icon: '◆', color: colors.gold, description: 'Crimson Shards are a flexible meta-currency. Spend them in the Black Market, on selected unlocks, and on dragon defenses such as Anger Shields.' },
 	{ id: 'quarks', label: 'Quarks', icon: '◇', color: colors.blue, description: 'Quarks fuel high-tier evolution, monument, and Convertor systems.' },
 ];
 
@@ -46,21 +45,14 @@ const FURY_RATES: Record<AppActivity, number> = {
 	'blocked-app': 5 / 3600,
 };
 const activityLabel = (activity: AppActivity) => activity.replaceAll('-', ' ');
-const difficultyValue = { trivial: 1, easy: 2, medium: 3, hard: 4, 'hard-plus': 5 } as const;
-const baseGoalFuryLoss = (goal: Goal) => {
-	const difficulty = difficultyValue[goal.difficulty];
-	const late = goal.dueAt ? Date.parse(goal.completedAt ?? '') > Date.parse(goal.dueAt) : false;
-	const pomodoro = goal.type === 'special-habit' && goal.specialKind.startsWith('pomodoro-');
-	const daysToComplete = goal.type === 'task' ? Math.max(0, Math.floor((Date.parse(goal.completedAt ?? goal.createdAt) - Date.parse(goal.createdAt)) / 86_400_000)) : 0;
-	const baseXp =
-		late ? 2 + goal.subgoals.length
-		: pomodoro ? 3 + goal.streak + goal.subgoals.length
-		: goal.type === 'special-habit' ? 6 + 2 * goal.streak + goal.subgoals.length
-		: goal.type === 'habit' ? 5 + difficulty + goal.streak + goal.subgoals.length
-		: 5 + difficulty + daysToComplete + goal.subgoals.length;
-	return decimal(baseXp);
-};
 const durationLabel = (seconds: number) => `${(seconds / 3600).toFixed(1)}h`;
+const PANEL_COPY: Record<PanelMode, { title: string; hint: string }> = {
+	world: { title: 'World Panel', hint: 'Milestone, Fury, streaks, and current world state' },
+	population: { title: 'Population Panel', hint: 'Population growth, losses, and active threats' },
+	goals: { title: 'Goals Panel', hint: 'Active work and daily survey streaks' },
+	resources: { title: 'Production Panel', hint: 'Currencies and live Energy output' },
+	spells: { title: 'Spell Panel', hint: 'Backpack inventory by spell size' },
+};
 
 export function SecondaryPanel({ mode }: { mode: PanelMode }) {
 	const { resources, totalAllTime, deaths, dragon, hostiles, angerShields, getFuryBand } = useWorldStore(useShallow(state => ({ resources: state.resourceStore.resources, totalAllTime: state.resourceStore.totalAllTime, deaths: state.resourceStore.populationDead, dragon: state.resourceStore.dragon, hostiles: state.populationStore, angerShields: state.dragonStore.angerShields, getFuryBand: state.dragonStore.getFuryBand })));
@@ -69,34 +61,33 @@ export function SecondaryPanel({ mode }: { mode: PanelMode }) {
 	const pomodoro = useProductivityStore(state => state.pomodoro);
 	const spells = useProductionSpecialStore(state => state.spells.spellInventory);
 	const heart = useProductionSpecialStore(useShallow(state => ({ charge: state.crimsonHeart.charge, getTargetCharge: state.crimsonHeart.getTargetCharge, getChargeRate: state.crimsonHeart.getChargeRate })));
-	const offline = useOfflineProgressStore(useShallow(state => ({ offAppSeconds: state.offAppSeconds, allowedAppSeconds: state.allowedAppSeconds, blockedAppSeconds: state.blockedAppSeconds, appBlockingMode: state.appBlockingMode })));
+	const offline = useOfflineProgressStore(useShallow(state => ({ offAppSeconds: state.offAppSeconds, allowedAppSeconds: state.allowedAppSeconds, blockedAppSeconds: state.blockedAppSeconds })));
 	const panelLayout = useAppStore(state => state.secondaryPanelLayout);
 	const gameMode = useWorldStore(state => state.optionsStore.gameMode);
 	const configuredActivity = useWorldStore(state => state.optionsStore.activity);
 	const furyBand = getFuryBand();
 	const furyStage = displayFuryStage(furyBand, angerShields);
 	const milestone = milestoneForEnergy(totalAllTime.energy);
-	const online = useOnlineProgressStore.getState();
-	const baseProduction = online.calculateProducerEnergy(1, 1, 'idle');
-	const amplification = online.calculateAmplification();
-	const energyPerSecond = baseProduction.times(amplification).times(online.calculateOtherEnergyMultipliers());
 	const activity: AppActivity = pomodoro.status === 'countdown-active' || pomodoro.status === 'count-up' ? 'pomodoro' : pomodoro.status === 'countdown-break' ? 'pomodoro-break' : configuredActivity;
 	const activeGoalPressure = Math.max(0, goals.incompleteHabits.length - 10) + Math.max(0, goals.incompleteTasks.length - 10);
-	const averageHeart = calculateAverageCrimsonHeartCharge(heart.charge, heart.getTargetCharge(activity), 3_600, heart.getChargeRate());
-	const estimatedFuryPerHour = calculateFuryChange(FURY_RATES[activity], WORLD_CONSTANTS.gameModes.furyMultiplier[gameMode], 3_600, activeGoalPressure, 1).times(Math.max(1, averageHeart));
-	const progression = calculateProgressionPreview(heart.charge);
-	const pendingGoals = [...goals.completed, ...goals.specialHabits.filter(goal => goal.status === 'completed')].filter(goal => goals.pendingHarvestIds.includes(goal.id));
-	const projectedGoalFuryLoss = pendingGoals.reduce((total, goal) => total.plus(baseGoalFuryLoss(goal)), decimal(0));
+	const averageHeart = mode === 'world' ? calculateAverageCrimsonHeartCharge(heart.charge, heart.getTargetCharge(activity), 3_600, heart.getChargeRate()) : 0;
+	const estimatedFuryPerHour = mode === 'world' ? calculateFuryChange(FURY_RATES[activity], WORLD_CONSTANTS.gameModes.furyMultiplier[gameMode], 3_600, activeGoalPressure, 1).times(Math.max(1, averageHeart)) : undefined;
+	const progression = mode === 'population' ? calculateProgressionPreview(heart.charge) : undefined;
+	const pendingGoals = mode === 'world' ? [...goals.completed, ...goals.specialHabits.filter(goal => goal.status === 'completed')].filter(goal => goals.pendingHarvestIds.includes(goal.id)) : [];
 	const offlineSeconds = offline.offAppSeconds + offline.allowedAppSeconds + offline.blockedAppSeconds;
-	const offlineDescription = `Offline time uses the same closed-form ticking engine as live time. Stored now: Off phone ${durationLabel(offline.offAppSeconds)}, Allowed apps ${durationLabel(offline.allowedAppSeconds)}, Blocked apps ${durationLabel(offline.blockedAppSeconds)}. Base Fury rates are +0.5/hour off phone, +1/hour for allowed apps, and +5/hour while blocked before Heart, mode, goals, spells, and shields.`;
-	const goalFuryDescription = pendingGoals.length ? `Projected base Fury loss from ${pendingGoals.length} pending harvest${pendingGoals.length === 1 ? '' : 's'}: ${formatDecimal(projectedGoalFuryLoss)}. Final loss is modified by difficulty, streaks, challenges, Aphrodite, premium effects, and calm spells at harvest.` : 'Goals reduce Fury when their rewards are harvested, not merely when they are completed. Complete and harvest goals to receive their Fury-loss reward.';
 	const [selectedId, setSelectedId] = useState<string>();
+	const panelCopy = PANEL_COPY[mode];
 
 	if (mode === 'resources') {
+		const online = useOnlineProgressStore.getState();
+		const baseProduction = online.calculateProducerEnergy(1, 1, 'idle');
+		const amplification = online.calculateAmplification();
+		const energyPerSecond = baseProduction.times(amplification).times(online.calculateOtherEnergyMultipliers());
 		const visibleTiles = RESOURCE_TILES.filter(tile => totalAllTime[tile.id as ResourcePanelId].gt(0));
 		const selectedTile = visibleTiles.find(tile => tile.id === selectedId);
 		return (
 			<View style={styles.panel}>
+				<PanelHeading title={panelCopy.title} hint={panelCopy.hint} />
 				<View style={styles.resourceGrid}>
 					{visibleTiles.map(tile => (
 						<PanelItem
@@ -109,6 +100,7 @@ export function SecondaryPanel({ mode }: { mode: PanelMode }) {
 					))}
 				</View>
 				{selectedTile ? <PanelDescription entry={selectedTile} /> : null}
+				<PrimaryMetricsPanel />
 			</View>
 		);
 	}
@@ -129,31 +121,42 @@ export function SecondaryPanel({ mode }: { mode: PanelMode }) {
 	: mode === 'population' ?
 		[
 			{ id: 'population', label: 'Population', value: formatDecimal(resources.population), icon: '◎', color: colors.blue, description: 'The living population of Earth. Population growth stops during blocked activity, Lock-In, dragon death, or a paused world state.' },
-			{ id: 'population-growth', label: 'Growth', value: `+${formatDecimal(progression.populationPerTick)} / tick`, icon: '↗', color: colors.green, description: `Current Population gained per Heart tick: ${formatDecimal(progression.populationPerTick)}. Heart ticks are ${formatDecimal(progression.heartTicksPerSecond, 3)} per second; Angry and Critical Fury can stop growth or cause population loss.` },
+			{ id: 'population-growth', label: 'Growth', value: `+${formatDecimal(progression!.populationPerTick)} / tick`, icon: '↗', color: colors.green, description: `Current Population gained per Heart tick: ${formatDecimal(progression!.populationPerTick)}. Heart ticks are ${formatDecimal(progression!.heartTicksPerSecond, 3)} per second; Angry and Critical Fury can stop growth or cause population loss.` },
 			{ id: 'threats', label: 'Threats', value: `${formatDecimal(hostiles.zombies)} · ${formatDecimal(hostiles.cyborgs)}`, icon: '☣', color: colors.crimsonBright, description: 'Zombies and cyborgs are population threats. Their growth and effects change with Fury stages and world modifiers.' },
 			{ id: 'deaths', label: 'Deaths', value: formatDecimal(deaths), icon: '†', color: colors.muted, description: 'The total population lost to threats and Fury effects during this run.' },
 		]
 	: [
 			{ id: 'milestone', label: 'Milestone', value: milestoneLabel(milestone), icon: '◆', color: colors.gold, description: 'Milestones are based on all-time Energy and unlock new chambers, systems, and rewards.' },
-			{ id: 'fury', label: 'Fury', value: `${furyStage} · ${formatDecimal(resources.fury)} / ${formatDecimal(dragon.furyThreshold)}`, icon: '🔥', color: colors.crimsonBright, description: `Dragon's Fury / Anger Level (Milestone 1). Current stage: ${furyStage}. Fury rises when goals are missed or the app is neglected. Shields make the stage Calm, protect against Angry or higher, absorb Fury temporarily, gain at ×½ in Calm, and cap at the threshold of ${formatDecimal(dragon.furyThreshold)}. Without shields: 0–threshold is Normal, threshold–2× is Angry, and 2×–3× is Critical; exceeding the cap triggers Supernova mass destruction. Angry stops Population growth with 1× losses per tick; Critical causes 2×. Estimated ${estimatedFuryPerHour.gte(0) ? '+' : ''}${formatDecimal(estimatedFuryPerHour)} Fury/hour during ${activityLabel(activity)}. Hard and Hard+ raise Fury gain and its cap for more Energy; Invincible and Lock-In pause Fury. Eros can reduce Fury through the Convertor. ${goalFuryDescription}` },
+			{ id: 'fury', label: 'Fury Trend', value: `${estimatedFuryPerHour!.gte(0) ? '+' : ''}${formatDecimal(estimatedFuryPerHour!)} / hr`, icon: '🔥', color: colors.crimsonBright, description: `The dragon is currently ${furyStage}. This estimate is for ${activityLabel(activity)} and includes Heart speed, game mode, active-goal pressure, and shields. The exact Fury total is in the compact row below.` },
 			{ id: 'streak', label: 'Streak', value: `${surveys.checkInStreak} · ${surveys.checkOutStreak}`, icon: '⟲', color: colors.gold, description: `Survey streaks: ${surveys.checkInStreak} check-in and ${surveys.checkOutStreak} check-out. Complete the daily survey cycle to keep both streaks moving.` },
-			{ id: 'important', label: 'Important Info', value: `${dragon.ageDays.toFixed(1)}d · ${durationLabel(offlineSeconds)}`, icon: 'ⓘ', color: colors.violet, description: `Dragon age is ${dragon.ageDays.toFixed(1)} days and the current activity is ${activityLabel(activity)}. Offline ticking stored so far: ${offlineDescription} ${goalFuryDescription}` },
+			{ id: 'important', label: 'World Status', value: `${dragon.ageDays.toFixed(1)}d · ${durationLabel(offlineSeconds)}`, icon: 'ⓘ', color: colors.violet, description: `Current activity: ${activityLabel(activity)}. Stored offline time: ${durationLabel(offlineSeconds)}. ${pendingGoals.length} completed goal${pendingGoals.length === 1 ? '' : 's'} waiting to be harvested.` },
 	];
 	const selectedEntry = entries.find(entry => entry.id === selectedId);
 
 	return (
 		<View style={styles.panel}>
+			<PanelHeading title={panelCopy.title} hint={panelCopy.hint} />
 			<View style={[styles.entryContent, panelLayout === 'vertical' && styles.entryContentVertical]}>
-				{entries.map(entry => <PanelItem key={entry.id} entry={entry} selected={selectedId === entry.id} vertical={panelLayout === 'vertical'} onPress={() => setSelectedId(current => current === entry.id ? undefined : entry.id)} />)}
+				{entries.map(entry => <PanelItem key={entry.id} entry={entry} selected={selectedId === entry.id} vertical={panelLayout === 'vertical'} fiveAcross={mode === 'goals'} onPress={() => setSelectedId(current => current === entry.id ? undefined : entry.id)} />)}
 			</View>
 			{selectedEntry ? <PanelDescription entry={selectedEntry} /> : null}
+			<PrimaryMetricsPanel />
 		</View>
 	);
 }
 
-function PanelItem({ entry, selected, vertical = false, onPress }: { entry: PanelEntry; selected: boolean; vertical?: boolean; onPress: () => void }) {
+function PanelHeading({ title, hint }: { title: string; hint: string }) {
 	return (
-		<Pressable accessibilityRole="button" accessibilityLabel={`${entry.label}, ${entry.value ?? ''}`} accessibilityState={{ selected }} onPress={onPress} style={[styles.panelItem, vertical && styles.panelItemColumn, selected && { borderBottomColor: entry.color }, selected && styles.panelItemSelected]}>
+		<View style={styles.heading}>
+			<Text style={styles.headingTitle}>{title}</Text>
+			<Text numberOfLines={1} adjustsFontSizeToFit style={styles.headingHint}>{hint} · tap for details</Text>
+		</View>
+	);
+}
+
+function PanelItem({ entry, selected, vertical = false, fiveAcross = false, onPress }: { entry: PanelEntry; selected: boolean; vertical?: boolean; fiveAcross?: boolean; onPress: () => void }) {
+	return (
+		<Pressable accessibilityRole="button" accessibilityLabel={`${entry.label}, ${entry.value ?? ''}`} accessibilityState={{ selected }} onPress={onPress} style={[styles.panelItem, fiveAcross && styles.panelItemFiveAcross, vertical && styles.panelItemColumn, selected && { borderBottomColor: entry.color }, selected && styles.panelItemSelected]}>
 			<Text style={[styles.panelIcon, { color: entry.color }]}>{entry.icon}</Text>
 			<View style={[styles.panelCopy, vertical && styles.panelCopyColumn]}>
 			<Text numberOfLines={2} adjustsFontSizeToFit style={styles.panelLabel}>{entry.label}</Text>
@@ -174,9 +177,13 @@ function PanelDescription({ entry }: { entry: PanelEntry }) {
 
 const styles = StyleSheet.create({
 	panel: { minHeight: 68, backgroundColor: colors.surfaceRaised, borderBottomColor: colors.line, borderBottomWidth: 1, paddingHorizontal: space.lg, paddingVertical: space.sm },
+	heading: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.sm, borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: space.xs },
+	headingTitle: { color: colors.ink, fontFamily: appFonts.bold, fontSize: 12, letterSpacing: 0.2 },
+	headingHint: { flex: 1, color: colors.muted, fontFamily: appFonts.regular, fontSize: 9, textAlign: 'right' },
 	entryContent: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'stretch', rowGap: space.xs, paddingVertical: space.xs },
 	entryContentVertical: { alignItems: 'stretch' },
-	panelItem: { width: '31%', minWidth: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 2, paddingVertical: 4, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+	panelItem: { width: '23.5%', minWidth: 0, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 1, paddingVertical: 3, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+	panelItemFiveAcross: { width: '19%' },
 	panelItemColumn: { flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1 },
 	panelItemSelected: { backgroundColor: colors.canvasRaised },
 	panelIcon: { width: 18, fontSize: 16, textAlign: 'center' },

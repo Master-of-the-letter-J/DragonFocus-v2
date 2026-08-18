@@ -106,9 +106,8 @@ export const createDragonSlice: WorldSlice<'dragonStore'> = (set, get) => {
 		const levels = useProductionStore.getState().levels;
 		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return undefined;
 		const base = decimal(1 + (levels['bigger-clicks'] ?? 0)).times(decimal(2).pow(levels['double-clicks'] ?? 0));
-		const fury = decimal(Math.max(0, 0.01 - (levels['less-angry-clicks'] ?? 0) * 0.001));
-		resources.addResource('energy', base);
-		resources.addResource('fury', fury);
+		const fury = decimal(Math.max(0.01, 0.1 - (levels['less-angry-clicks'] ?? 0) * 0.01));
+		resources.addResources({ energy: base, fury });
 		const bonusTicks = 0.2 * (levels['true-dragon-clicks'] ?? 0);
 		if (bonusTicks > 0) useOnlineProgressStore.getState().tickWorld(bonusTicks);
 		const quote = DRAGON_QUOTES[Math.floor(Math.random() * DRAGON_QUOTES.length)];
@@ -120,15 +119,17 @@ export const createDragonSlice: WorldSlice<'dragonStore'> = (set, get) => {
 		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return undefined;
 		const levels = useProductionStore.getState().levels;
 		const startingPopulation = resources.resources.population;
-		resources.addPopulation(decimal(10).pow(levels['gaias-gift'] ?? 0));
+		const baseGain = decimal(10).pow(levels['gaias-gift'] ?? 0);
+		const populationAfterBase = startingPopulation.plus(baseGain);
 		const level = levels['un-worldly-clicks'] ?? 0;
 		const growthTicks = Math.min(1, level * 0.2);
+		let finalPopulation = populationAfterBase;
 		if (growthTicks > 0) {
-			const population = resources.resources.population;
-			const nextPopulation = useOnlineProgressStore.getState().calculatePopulationProgress({ initial: population, ticks: growthTicks, multiplier: 1 });
-			resources.addPopulation(nextPopulation.minus(population));
+			finalPopulation = useOnlineProgressStore.getState().calculatePopulationProgress({ initial: populationAfterBase, ticks: growthTicks, multiplier: 1 });
 		}
-		return resources.resources.population.minus(startingPopulation).toString();
+		const gain = finalPopulation.minus(startingPopulation);
+		resources.addPopulation(gain);
+		return gain.toString();
 	},
 	setAngerShields: amount => setSlice({ angerShields: Math.max(0, amount) }),
 	recordDragonAge: ageDays => {

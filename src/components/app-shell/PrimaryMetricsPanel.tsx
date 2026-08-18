@@ -12,9 +12,10 @@ const { colors, space } = dragonTheme;
 type MetricEntry = { id: string; label: string; value: string; icon: string; color: string; description: string };
 
 export function PrimaryMetricsPanel() {
-	const { resources, dragon, angerShields, getFuryBand } = useWorldStore(useShallow(state => ({
-		resources: state.resourceStore.resources,
-		dragon: state.resourceStore.dragon,
+	const { shards, fury, furyThreshold, angerShields, getFuryBand } = useWorldStore(useShallow(state => ({
+		shards: state.resourceStore.resources.shards,
+		fury: state.resourceStore.resources.fury,
+		furyThreshold: state.resourceStore.dragon.furyThreshold,
 		angerShields: state.dragonStore.angerShields,
 		getFuryBand: state.dragonStore.getFuryBand,
 	})));
@@ -24,9 +25,9 @@ export function PrimaryMetricsPanel() {
 	const heartMultiplier = Math.max(0, heart.charge);
 	const maximumHeart = heart.getMaximumCharge();
 	const entries: readonly MetricEntry[] = [
-		{ id: 'shards', label: 'Shards', value: formatDecimal(resources.shards), icon: '◆', color: colors.gold, description: 'Crimson Shards are a flexible meta-currency used in the Black Market, selected unlocks, and defenses such as Anger Shields.' },
-		{ id: 'heart', label: 'Heart Multiplier', value: `×${formatDecimal(heartMultiplier, 3)}`, icon: '♥', color: colors.crimsonBright, description: `The Crimson Heart applies a ×${formatDecimal(heartMultiplier, 3)} tick multiplier to Energy and Population while active. The default Pomodoro target is ×100; anomaly upgrades can raise the current target to ×${maximumHeart.toFixed(1)}.` },
-		{ id: 'fury', label: 'Dragon Fury', value: `${furyStage} · ${formatDecimal(resources.fury)}`, icon: '🔥', color: '#FFB5A7', description: `The dragon is ${furyStage} at ${formatDecimal(resources.fury)} / ${formatDecimal(dragon.furyThreshold)} Fury. Shields can keep the stage Calm; Angry and Critical Fury stop Population growth and cause losses.` },
+		{ id: 'shards', label: 'Shards', value: formatDecimal(shards), icon: '◆', color: colors.gold, description: 'Crimson Shards buy Black Market goods, selected permanent unlocks, and defenses such as Anger Shields.' },
+		{ id: 'heart', label: 'Heart Speed', value: `${formatDecimal(heartMultiplier, 3)}%`, icon: '♥', color: colors.crimsonBright, description: `The Heart is currently driving ${formatDecimal(heartMultiplier, 3)} ticks each real second. Its current maximum is ${maximumHeart.toFixed(1)}%. It affects Energy, Population, Special Generation, Chaos Energy, and Fury—not Harvests, conversions, the Incinerator, Shrines, or Spells.` },
+		{ id: 'fury', label: 'Dragon Fury', value: `${furyStage} · ${formatDecimal(fury)}`, icon: '🔥', color: '#FFB5A7', description: `The dragon is ${furyStage} at ${formatDecimal(fury)} / ${formatDecimal(furyThreshold)} Fury. Shields can keep the stage Calm; Angry and Critical Fury stop Population growth and cause losses.` },
 	];
 	const selectedEntry = entries.find(entry => entry.id === selectedId);
 
@@ -60,9 +61,9 @@ export function PrimaryMetricsPanel() {
 }
 
 const styles = StyleSheet.create({
-	panel: { minHeight: 68, backgroundColor: colors.surfaceRaised, borderBottomColor: colors.line, borderBottomWidth: 1, paddingHorizontal: space.lg, paddingVertical: space.sm },
+	panel: { minHeight: 42, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.xs },
 	grid: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'stretch', gap: space.sm },
-	item: { flex: 1, minWidth: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 2, paddingVertical: 4, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+	item: { flex: 1, minWidth: 0, minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 1, paddingVertical: 2, borderBottomWidth: 2, borderBottomColor: 'transparent' },
 	selected: { backgroundColor: colors.canvasRaised },
 	icon: { width: 18, fontSize: 16, textAlign: 'center' },
 	copy: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 1 },

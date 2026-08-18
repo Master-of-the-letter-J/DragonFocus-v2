@@ -2,13 +2,31 @@ import { useOfflineProgressStore } from '@/store/store-offline-progress/_useOffl
 import { useOnlineProgressStore } from '@/store/store-online-progress/_useOnlineProgressStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { useAppStore } from '@/store/useAppStore';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { setDefaultDecimalFormat } from '@/utils/decimal';
 import { GOVERNMENT_LOGS } from '@/data/world-data/government-logs';
 import { milestoneForEnergy } from '@/data/world-data/milestones';
 import { dragonTheme } from '@/constants/dragon-theme';
+import { unlockedPageNoticeIds } from '@/data/world-data/page-unlocks';
+
+const subscribeAppHydration = (notify: () => void) => {
+	const stopStart = useAppStore.persist.onHydrate(notify);
+	const stopFinish = useAppStore.persist.onFinishHydration(notify);
+	return () => { stopStart(); stopFinish(); };
+};
+const subscribeWorldHydration = (notify: () => void) => {
+	const stopStart = useWorldStore.persist.onHydrate(notify);
+	const stopFinish = useWorldStore.persist.onFinishHydration(notify);
+	return () => { stopStart(); stopFinish(); };
+};
+
+function useUnlockStoresHydrated() {
+	const appHydrated = useSyncExternalStore(subscribeAppHydration, useAppStore.persist.hasHydrated, () => true);
+	const worldHydrated = useSyncExternalStore(subscribeWorldHydration, useWorldStore.persist.hasHydrated, () => true);
+	return appHydrated && worldHydrated;
+}
 
 /** One global clock owns online progress. Screens never create competing intervals. */
 function NewGameManager() {
@@ -66,9 +84,16 @@ export function AppManagers() {
 	setDefaultDecimalFormat(numberFormat);
 	const hasEntered = useAppStore(state => state.hasEntered);
 	const seen = useAppStore(state => state.seenGovernmentLogIds);
+	const noticesInitialized = useAppStore(state => state.pageUnlockNoticesInitialized);
 	const dragonSpawned = useWorldStore(state => state.dragonStore.dragonSpawned);
 	const totalEnergy = useWorldStore(state => state.resourceStore.totalAllTime.energy);
-	const log = hasEntered ? GOVERNMENT_LOGS.find(item => !seen.includes(item.id) && milestoneForEnergy(totalEnergy) >= item.milestone && (!item.requiresDragon || dragonSpawned)) : undefined;
+	const milestone = milestoneForEnergy(totalEnergy);
+	const unlockStoresHydrated = useUnlockStoresHydrated();
+	useEffect(() => {
+		if (!unlockStoresHydrated || !hasEntered || noticesInitialized) return;
+		useAppStore.getState().initializePageUnlockNotices(unlockedPageNoticeIds(milestone, dragonSpawned));
+	}, [dragonSpawned, hasEntered, milestone, noticesInitialized, unlockStoresHydrated]);
+	const log = hasEntered ? GOVERNMENT_LOGS.find(item => !seen.includes(item.id) && milestone >= item.milestone && (!item.requiresDragon || dragonSpawned)) : undefined;
 	return (
 		<>
 			<NewGameManager />

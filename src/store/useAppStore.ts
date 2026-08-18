@@ -51,6 +51,8 @@ export interface AppStoreState {
 	numberFormat: NumberFormatStyle;
 	lastOpenedAt: string;
 	seenGovernmentLogIds: string[];
+	pageUnlockNoticesInitialized: boolean;
+	seenPageUnlockNoticeIds: string[];
 	slices: AppStoreSlices;
 	setTheme: (theme: AppStoreState['theme']) => void;
 	setAutoHarvest: (enabled: boolean) => void;
@@ -69,6 +71,8 @@ export interface AppStoreState {
 	setNumberFormat: (format: NumberFormatStyle) => void;
 	markOpened: () => void;
 	dismissGovernmentLog: (id: string) => void;
+	initializePageUnlockNotices: (unlockedIds: readonly string[]) => void;
+	dismissPageUnlockNotice: (id: string) => void;
 	startGame: () => void;
 	resetEverything: () => Promise<void>;
 }
@@ -123,6 +127,8 @@ const createAppPreferencesSlice: AppSlice<
 	| 'numberFormat'
 	| 'lastOpenedAt'
 	| 'seenGovernmentLogIds'
+	| 'pageUnlockNoticesInitialized'
+	| 'seenPageUnlockNoticeIds'
 	| 'slices'
 	| 'setTheme'
 	| 'setAutoHarvest'
@@ -141,6 +147,8 @@ const createAppPreferencesSlice: AppSlice<
 	| 'setNumberFormat'
 	| 'markOpened'
 	| 'dismissGovernmentLog'
+	| 'initializePageUnlockNotices'
+	| 'dismissPageUnlockNotice'
 	| 'startGame'
 > = set => ({
 	version: 5,
@@ -163,6 +171,8 @@ const createAppPreferencesSlice: AppSlice<
 	numberFormat: 'expanded-short',
 	lastOpenedAt: new Date().toISOString(),
 	seenGovernmentLogIds: [],
+	pageUnlockNoticesInitialized: false,
+	seenPageUnlockNoticeIds: [],
 	slices: appStoreSlices,
 	setTheme: theme => set({ theme }),
 	setAutoHarvest: autoHarvest => set({ autoHarvest }),
@@ -181,6 +191,8 @@ const createAppPreferencesSlice: AppSlice<
 	setNumberFormat: numberFormat => set({ numberFormat }),
 	markOpened: () => set({ lastOpenedAt: new Date().toISOString() }),
 	dismissGovernmentLog: id => set(state => ({ seenGovernmentLogIds: [...new Set([...state.seenGovernmentLogIds, id])] })),
+	initializePageUnlockNotices: unlockedIds => set(state => state.pageUnlockNoticesInitialized ? state : ({ pageUnlockNoticesInitialized: true, seenPageUnlockNoticeIds: [...new Set(unlockedIds)] })),
+	dismissPageUnlockNotice: id => set(state => ({ seenPageUnlockNoticeIds: [...new Set([...state.seenPageUnlockNoticeIds, id])] })),
 	startGame: () => {
 		const now = new Date().toISOString();
 		set(state => ({ hasEntered: true, startedAt: state.startedAt ?? now, lastOpenedAt: now }));
@@ -200,7 +212,7 @@ const createAppResetSlice: AppSlice<'resetEverything'> = set => ({
 		usePremiumStore.getState().reset();
 		useDevelopmentStore.getState().temporaryCheats.reset();
 		await AsyncStorage.multiRemove(storageKeys);
-		set({ version: 5, hasEntered: false, startedAt: undefined, theme: 'system', autoHarvest: false, soundEffectsVolume: 0.8, musicVolume: 0.5, brightness: 1, requireDailyCheckIn: true, requireDailyCheckOut: false, reverseItemLayout: false, secondaryPanelLayout: 'horizontal', showNewsBar: true, backgroundStyle: 'nexus', dragonCosmetic: 'classic', weatherEffects: { rain: false, tremors: false, brightness: false }, noSpritesMode: false, numberFormat: 'expanded-short', lastOpenedAt: new Date().toISOString(), seenGovernmentLogIds: [] });
+		set({ version: 5, hasEntered: false, startedAt: undefined, theme: 'system', autoHarvest: false, soundEffectsVolume: 0.8, musicVolume: 0.5, brightness: 1, requireDailyCheckIn: true, requireDailyCheckOut: false, reverseItemLayout: false, secondaryPanelLayout: 'horizontal', showNewsBar: true, backgroundStyle: 'nexus', dragonCosmetic: 'classic', weatherEffects: { rain: false, tremors: false, brightness: false }, noSpritesMode: false, numberFormat: 'expanded-short', lastOpenedAt: new Date().toISOString(), seenGovernmentLogIds: [], pageUnlockNoticesInitialized: false, seenPageUnlockNoticeIds: [] });
 	},
 });
 

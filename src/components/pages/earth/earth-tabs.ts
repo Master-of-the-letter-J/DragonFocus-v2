@@ -1,11 +1,11 @@
 /** Navigation metadata for the Earth route. */
 export const EARTH_TABS = [
-	{ id: 'command', label: 'Command Center', unlockMilestone: 0.25 },
-	{ id: 'surveys', label: 'Surveys', unlockMilestone: 0.25 },
-	{ id: 'active', label: 'Active Goals', unlockMilestone: 0.5 },
-	{ id: 'finished', label: 'Finished Goals', unlockMilestone: 0.5 },
-	{ id: 'focus', label: 'Pomodoro Cave', unlockMilestone: 0.75 },
-	{ id: 'hoard', label: "Hoard's Cave", unlockMilestone: 0.75 },
+	{ id: 'command', label: 'Command Center', unlockMilestone: 0.25, noticeId: 'command-center' },
+	{ id: 'surveys', label: 'Surveys', unlockMilestone: 0.25, noticeId: 'surveys' },
+	{ id: 'active', label: 'Active Goals', unlockMilestone: 0.5, noticeId: 'active-goals' },
+	{ id: 'finished', label: 'Finished Goals', unlockMilestone: 0.5, noticeId: 'finished-goals' },
+	{ id: 'focus', label: 'Pomodoro Cave', unlockMilestone: 0.75, noticeId: 'pomodoro-cave' },
+	{ id: 'hoard', label: "Hoard's Cave", unlockMilestone: 0.75, noticeId: 'hoards-cave' },
 ] as const;
 
 export type EarthTab = (typeof EARTH_TABS)[number]['id'];

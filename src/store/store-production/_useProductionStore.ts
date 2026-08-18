@@ -117,7 +117,7 @@ const requirementsMet = (item: ProductionItem, state: ProductionStoreState) => {
 };
 
 const initialState = () => ({
-	levels: { 'bigger-clicks': 1 } as Record<string, number>,
+	levels: {} as Record<string, number>,
 	paidCostLevels: {} as Record<string, number>,
 	effects: {} as Partial<Record<ProductionEffectId, boolean>>,
 	unlockState: emptyUnlockState(),
@@ -205,6 +205,13 @@ const createProductionSlice: StateCreator<ProductionStoreState, [], [], Producti
 			const start = remembered ? Math.max(owned, paidLevel) : owned;
 			const payableQuantity = remembered ? Math.max(0, owned + amount - start) : amount;
 			if (!payableQuantity) continue;
+			if (cost.resource === 'anomaly' && (item.id === 'crimson-offline-awakening' || item.id === 'crimson-pomodoro-awakening')) {
+				const value = Array.from({ length: payableQuantity }, (_, index) =>
+					decimal(Math.floor(calculateExponentialGrowth(cost, start + index).toNumber())),
+				).reduce((total, levelCost) => total.plus(levelCost), decimal(0));
+				totals.anomaly = (totals.anomaly ?? decimal(0)).plus(value);
+				continue;
+			}
 			const destroyed = item.kind === 'producer' ? (get().producerStore.destroyedLevels[itemId] ?? 0) : 0;
 			const belowPreviousBest = Math.max(0, (get().producerStore.bestLevels[itemId] ?? owned) - owned);
 			const repairQuantity = Math.min(payableQuantity, destroyed, belowPreviousBest);

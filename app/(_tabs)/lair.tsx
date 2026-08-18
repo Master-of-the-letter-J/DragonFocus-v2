@@ -167,7 +167,7 @@ function Nexus() {
 			</Card>
 			<Card accent="gold">
 				<SectionTitle title="Dragon Clickers" detail="Small permanent upgrades for the very start of the game." />
-				<Text style={uiStyles.muted}>Dragon clicks start at 1 Energy and add +0.01 Anger. Dragon click upgrades persist through Armageddons and Transcensions, and their effects scale the Earth clicker system proportionally.</Text>
+				<Text style={uiStyles.muted}>Dragon clickers start at level 0. A base click gives 1 Energy and +0.1 Fury; nine Less Angry Clicks upgrades reduce Fury to the 0.01 minimum. Clicker upgrades persist through Armageddons and Transcensions.</Text>
 				<Text style={uiStyles.muted}>Buy one level of the last visible clicker to reveal the next at no unlock cost. Maxed clickers disappear forever.</Text>
 			</Card>
 			<ClickerList items={DRAGON_CLICKERS} />
@@ -229,7 +229,7 @@ function Production() {
 	);
 }
 
-function ItemList({ items, quantity = 1 }: { items: readonly ProductionItem[]; quantity?: number }) {
+function ItemList({ items, quantity = 1, revealSequentially = false }: { items: readonly ProductionItem[]; quantity?: number; revealSequentially?: boolean }) {
 	const reverseItemLayout = useAppStore(state => state.reverseItemLayout);
 	const online = useOnlineProgressStore.getState();
 	const totalProducerRate = online.calculateProducerEnergy(1, 1, 'idle');
@@ -248,7 +248,9 @@ function ItemList({ items, quantity = 1 }: { items: readonly ProductionItem[]; q
 	);
 	const resources = useWorldStore(state => state.resourceStore.resources);
 	const firstLockedIndex = items.findIndex(item => !store.isItemUnlocked(item.id));
-	const visibleItems = items.filter((item, index) => store.isItemUnlocked(item.id) || index === firstLockedIndex);
+	const visibleItems = revealSequentially
+		? items.filter((_, index) => index === 0 || (store.levels[items[index - 1]!.id] ?? 0) > 0)
+		: items.filter((item, index) => store.isItemUnlocked(item.id) || index === firstLockedIndex);
 	return (
 		<View style={styles.itemList}>
 			{visibleItems.map((item, index) => {
@@ -364,18 +366,27 @@ function CrimsonHeart() {
 	const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 	const onApp = heart.getTargetCharge('idle');
 	const onPhone = heart.getTargetCharge('allowed-app');
+	const blocked = heart.getTargetCharge('blocked-app');
 	const offPhone = heart.getTargetCharge('off-app');
+	const pomodoro = heart.getTargetCharge('pomodoro');
+	const pomodoroBreak = heart.getTargetCharge('pomodoro-break');
 	const maximumCharge = heart.getMaximumCharge();
 	const heartPercent = Math.max(0, heart.charge);
 	return (
 		<>
-			<PageIntro eyebrow="Real-time production clock" title="Crimson Heart" description="The Heart converts real seconds into production and population ticks. Blocked apps and Lock-In produce nothing; Harvests, conversions, shrines, spells, and the Incinerator keep their own timing." />
+			<PageIntro eyebrow="Real-time production clock" title="Crimson Heart" description="The Heart converts real seconds into ticks. Its upgrades survive Transcension and reset only through a respec." />
 			<Card>
 				<View style={styles.heartStatsRow}>
 					<Stat label="Dragon Focus" value={`${onApp.toFixed(1)}%`} tone="crimson" />
 					<Stat label="Allowed app" value={`${onPhone.toFixed(1)}%`} tone="blue" />
 					<Stat label="Off phone" value={`${offPhone.toFixed(1)}%`} tone="gold" />
 				</View>
+				<View style={styles.heartStatsRow}>
+					<Stat label="Blocked app" value={`${blocked.toFixed(1)}%`} tone="crimson" />
+					<Stat label="Pomodoro" value={`${pomodoro.toFixed(1)}%`} tone="blue" />
+					<Stat label="Break / Focus" value={`${pomodoroBreak.toFixed(1)}%`} tone="gold" />
+				</View>
+				<Text style={uiStyles.muted}>Affects all Energy, Population, Special Generation, Chaos Energy, and Dragon Fury ticks. It does not affect Harvests, conversions, the Incinerator, Shrines, or Spells. Lock-In and blocked apps always produce at 0%.</Text>
 			</Card>
 			<Card accent="crimson">
 				<SectionTitle title="Current charge" detail="Game mode and the Dragon Pact scale the Heart and its maximum." />
@@ -401,7 +412,11 @@ function CrimsonHeart() {
 				<Text style={styles.heartChargeDetail}>{heart.charge.toFixed(1)} / {maximumCharge.toFixed(0)} charge</Text>
 				<ProgressBar value={heart.charge} max={maximumCharge} label={`Crimson Heart · ${heartPercent.toFixed(1)}%`} />
 			</Card>
-			<ItemList items={upgrades} />
+			<Card accent="gold">
+				<SectionTitle title="Crimson Heart upgrades" detail="Buy one level of the last visible upgrade to reveal the next. Revealing an upgrade has no additional cost." />
+				<Text style={uiStyles.muted}>Offline means an allowed app or off-phone time. Off-phone Tempo doubles only the off-phone target; Pomodoro Tempo multiplies Pomodoro and break targets by ten.</Text>
+			</Card>
+			<ItemList items={upgrades} revealSequentially />
 		</>
 	);
 }

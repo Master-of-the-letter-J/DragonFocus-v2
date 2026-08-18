@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/expoImages/android-icon-background.png",
         "monochromeImage": "./assets/images/expoImages/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.masterj.DragonFocus"
     },
     "web": {
       "output": "static",
@@ -35,11 +36,18 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0ab97662-85ad-40bc-81b8-bb5f623f6a41"
+      }
     }
   }
 }

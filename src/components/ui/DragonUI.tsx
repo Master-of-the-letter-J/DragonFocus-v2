@@ -1,5 +1,8 @@
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { milestoneLabel } from '@/data/world-data/milestones';
+import { PAGE_UNLOCK_NOTICE_BY_ID } from '@/data/world-data/page-unlocks';
+import { useAppStore } from '@/store/useAppStore';
+import { useEffect } from 'react';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown, LinearTransition, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -77,12 +80,27 @@ export function Chip({ label, selected = false, onPress, disabled = false }: { l
 	);
 }
 
-export function TabStrip<T extends string>({ tabs, value, onChange, milestone = Number.POSITIVE_INFINITY }: { tabs: readonly { id: T; label: string; unlockMilestone?: number }[]; value: T; onChange: (tab: T) => void; milestone?: number }) {
+
+export function TabStrip<T extends string>({ tabs, value, onChange, milestone = Number.POSITIVE_INFINITY }: { tabs: readonly { id: T; label: string; unlockMilestone?: number; noticeId?: string; childNoticeIds?: readonly string[] }[]; value: T; onChange: (tab: T) => void; milestone?: number }) {
+	const noticesInitialized = useAppStore(state => state.pageUnlockNoticesInitialized);
+	const seenNoticeIds = useAppStore(state => state.seenPageUnlockNoticeIds);
+	const dismissNotice = useAppStore(state => state.dismissPageUnlockNotice);
+	const currentTab = tabs.find(tab => tab.id === value);
+	const currentUnlocked = milestone >= (currentTab?.unlockMilestone ?? 0);
+	const currentNoticeId = currentTab?.noticeId;
+	useEffect(() => {
+		if (noticesInitialized && currentUnlocked && currentNoticeId && !seenNoticeIds.includes(currentNoticeId)) dismissNotice(currentNoticeId);
+	}, [currentNoticeId, currentUnlocked, dismissNotice, noticesInitialized, seenNoticeIds]);
 	return (
 		<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabStrip}>
 			{tabs.map(tab => {
 				const locked = milestone < (tab.unlockMilestone ?? 0);
-				return <Chip key={tab.id} label={locked ? `🔒 ${tab.label} · Milestone ${milestoneLabel(tab.unlockMilestone ?? 0)}` : tab.label} disabled={locked} selected={tab.id === value} onPress={() => onChange(tab.id)} />;
+				const noticeIds = [tab.noticeId, ...(tab.childNoticeIds ?? [])].filter((id): id is string => Boolean(id));
+				const warning = noticesInitialized && !locked && noticeIds.some(id => milestone >= (PAGE_UNLOCK_NOTICE_BY_ID[id]?.milestone ?? Number.POSITIVE_INFINITY) && !seenNoticeIds.includes(id));
+				return <Chip key={tab.id} label={locked ? `🔒 ${tab.label} · Milestone ${milestoneLabel(tab.unlockMilestone ?? 0)}` : warning ? `⚠️ ${tab.label}` : tab.label} disabled={locked} selected={tab.id === value} onPress={() => {
+					if (tab.noticeId) dismissNotice(tab.noticeId);
+					onChange(tab.id);
+				}} />;
 			})}
 		</ScrollView>
 	);

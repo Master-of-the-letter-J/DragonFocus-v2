@@ -1,6 +1,5 @@
 import { EffectsPanel } from '@/components/app-shell/EffectsPanel';
 import { NewsBar } from '@/components/app-shell/NewsBar';
-import { PrimaryMetricsPanel } from '@/components/app-shell/PrimaryMetricsPanel';
 import { SecondaryPanel, type PanelMode } from '@/components/app-shell/SecondaryPanel';
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { milestoneForEnergy } from '@/data/world-data/milestones';
@@ -28,11 +27,11 @@ const menuItems = [
 ] as const;
 
 const panelChoices: { id: PanelMode; label: string }[] = [
-	{ id: 'world', label: 'World' },
-	{ id: 'population', label: 'Population' },
-	{ id: 'goals', label: 'Goals' },
-	{ id: 'resources', label: 'Resources' },
-	{ id: 'spells', label: 'Spells' },
+	{ id: 'world', label: 'World Panel' },
+	{ id: 'population', label: 'Population Panel' },
+	{ id: 'goals', label: 'Goals Panel' },
+	{ id: 'resources', label: 'Production Panel' },
+	{ id: 'spells', label: 'Spell Panel' },
 ];
 
 export function DragonAppScreen({ title, panel, effects = false, children, scrollProps }: PropsWithChildren<{ title: string; panel: PanelMode; effects?: boolean; scrollProps?: ScrollViewProps }>) {
@@ -80,14 +79,16 @@ export function DragonAppScreen({ title, panel, effects = false, children, scrol
 					</Pressable>
 				</View>
 			</Animated.View>
-			<SecondaryPanel mode={panelMode} />
-			<PrimaryMetricsPanel />
-			{showNewsBar ? <NewsBar milestone={milestoneForEnergy(totalEnergy)} /> : null}
-			{spellsUnlocked || effects ?
-				<EffectsPanel />
-			:	null}
-			<ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} {...scrollProps} contentContainerStyle={[styles.content, scrollProps?.contentContainerStyle]}>
-				<Animated.View entering={FadeInDown.duration(320)} style={styles.contentInner}>
+			<ScrollView
+				{...scrollProps}
+				keyboardShouldPersistTaps="handled"
+				showsVerticalScrollIndicator={false}
+				style={[styles.scroll, scrollProps?.style]}
+				contentContainerStyle={[styles.scrollContent, scrollProps?.contentContainerStyle]}>
+				<SecondaryPanel mode={panelMode} />
+				{showNewsBar ? <NewsBar milestone={milestoneForEnergy(totalEnergy)} /> : null}
+				{spellsUnlocked || effects ? <EffectsPanel /> : null}
+				<Animated.View entering={FadeInDown.duration(320)} style={[styles.content, styles.contentInner]}>
 					{children}
 				</Animated.View>
 			</ScrollView>
@@ -152,7 +153,9 @@ const styles = StyleSheet.create({
 	headerCenter: { position: 'absolute', top: 0, right: 64, bottom: 0, left: 64, alignItems: 'center', justifyContent: 'center' },
 	headerTitle: { color: colors.ink, fontFamily: appFonts.bold, fontSize: 17, textAlign: 'center' },
 	headerRight: { flexDirection: 'row', alignItems: 'center', zIndex: 1 },
-	content: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: 120 },
+	scroll: { flex: 1 },
+	scrollContent: { paddingBottom: 120 },
+	content: { paddingHorizontal: space.lg, paddingTop: space.lg },
 	contentInner: { width: '100%', maxWidth: 820, alignSelf: 'center', gap: space.lg },
 	scrim: { flex: 1, backgroundColor: '#050308D9', justifyContent: 'flex-end' },
 	drawer: { backgroundColor: colors.canvasRaised, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: colors.line, padding: space.lg, paddingBottom: 34, gap: 5 },

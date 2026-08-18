@@ -7,7 +7,7 @@ export const CLICKERS: ClickerDefinition[] = [
 		id: 'less-angry-clicks',
 		name: 'Less Angry Clicks',
 		kind: 'clicker',
-		description: 'Reduces click Anger by 0.001 per upgrade.',
+		description: 'Reduces Dragon-click Fury by 0.01 per upgrade, from 0.1 down to a minimum of 0.01.',
 		costs: [
 			{ resource: 'energy', base: '25', growthFactor: 2 },
 			{ resource: 'darkEnergy', base: '5', growthFactor: 1.5 },
@@ -17,7 +17,7 @@ export const CLICKERS: ClickerDefinition[] = [
 		persistsOnArmageddon: true,
 		persistsOnTranscension: true,
 		effect: 'fury-reduction',
-		value: 0.001,
+		value: 0.01,
 	},
 	{
 		id: 'true-dragon-clicks',
@@ -292,7 +292,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 			{ resource: 'shards', base: '30', growthFactor: 1 },
 		],
 		unlocks: [
-			{ metric: 'owned-item', itemId: 'crimson-heart-boost', amount: 1 },
+			{ metric: 'owned-item', itemId: 'crimson-activation', amount: 1 },
 			{ metric: 'effect', effectId: 'primordial-sanctuary' },
 		],
 		maxLevel: 1,
@@ -311,7 +311,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 			{ resource: 'shards', base: '30', growthFactor: 1 },
 		],
 		unlocks: [
-			{ metric: 'owned-item', itemId: 'crimson-off-phone-tempo', amount: 1 },
+			{ metric: 'owned-item', itemId: 'crimson-activation', amount: 1 },
 			{ metric: 'effect', effectId: 'primordial-sanctuary' },
 		],
 		maxLevel: 1,
@@ -330,7 +330,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 			{ resource: 'shards', base: '3', growthFactor: 1 },
 		],
 		unlocks: [
-			{ metric: 'owned-item', itemId: 'crimson-pomodoro-tempo', amount: 1 },
+			{ metric: 'owned-item', itemId: 'crimson-activation', amount: 1 },
 			{ metric: 'effect', effectId: 'primordial-sanctuary' },
 		],
 		persistsOnArmageddon: true,
@@ -348,7 +348,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 			{ resource: 'shards', base: '3', growthFactor: 1 },
 		],
 		unlocks: [
-			{ metric: 'owned-item', itemId: 'crimson-offline-awakening', amount: 1 },
+			{ metric: 'owned-item', itemId: 'crimson-activation', amount: 1 },
 			{ metric: 'effect', effectId: 'primordial-sanctuary' },
 		],
 		persistsOnArmageddon: true,
