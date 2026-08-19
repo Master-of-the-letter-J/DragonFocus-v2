@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create, type StateCreator } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { mergePersistedNestedState } from '../nested-slice';
-import { createGoalSlice, type GoalStoreState } from './createGoalSlice';
+import { createGoalSlice, migrateGoalStore, type GoalStoreState } from './createGoalSlice';
 import { createPomodoroSlice, type PomodoroStoreState } from './createPomodoroSlice';
 import { createProductivityActionsSlice } from './createProductivityActionsSlice';
 import { createSurveySlice, type SurveyStoreState } from './createSurveySlice';
@@ -33,7 +33,7 @@ export const useProductivityStore = create<ProductivityStoreState>()(
 			storage: createJSONStorage(() => AsyncStorage),
 			merge: (persisted, current) => {
 				const merged = mergePersistedNestedState(persisted, current, ['goals', 'pomodoro', 'surveys', 'surveyPreferences']);
-				return { ...merged, surveyPreferences: migrateSurveyPreferences(merged.surveyPreferences) };
+				return { ...merged, goals: migrateGoalStore(merged.goals), surveyPreferences: migrateSurveyPreferences(merged.surveyPreferences) };
 			},
 		},
 	),

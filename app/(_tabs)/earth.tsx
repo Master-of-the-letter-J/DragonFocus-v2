@@ -1,4 +1,5 @@
 import { ActionButton, Card, Chip, EmptyState, PageIntro, ProgressBar, SectionTitle, TabStrip, uiStyles } from '@/components/ui/DragonUI';
+import { ClickRestOverlay } from '@/components/ui/ClickRestOverlay';
 import { displayFuryStage } from '@/components/ui/fury-display';
 import { DragonAppScreen } from '@/components/app-shell/DragonAppScreen';
 import { ClickerList } from '@/components/pages/lair/ClickerList';
@@ -15,7 +16,7 @@ import { useProductivityStore } from '@/store/store-productivity/_useProductivit
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { useAppStore } from '@/store/useAppStore';
 import { formatDecimal } from '@/utils/decimal';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import Animated, { FadeOutUp, useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
@@ -27,12 +28,16 @@ const feedbackTop = (y: number) => Math.max(8, y - 10);
 
 export default function EarthRoute() {
 	const params = useLocalSearchParams<{ tab?: EarthTab }>();
-	const milestone = milestoneForEnergy(useWorldStore(state => state.resourceStore.totalAllTime.energy));
+	const totalEnergy = useWorldStore(state => state.resourceStore.totalAllTime.energy);
+	const dragonSpawned = useWorldStore(state => state.dragonStore.dragonSpawned);
+	const hasHarvestableGoals = useProductivityStore(state => state.goals.pendingHarvestIds.length > 0);
+	const milestone = milestoneForEnergy(totalEnergy);
 	const [tab, setTab] = useState<EarthTab>(EARTH_TABS.some(candidate => candidate.id === params.tab) ? params.tab! : 'command');
 	const requiredMilestone = EARTH_TABS.find(candidate => candidate.id === tab)?.unlockMilestone ?? 0;
+	if (!dragonSpawned || milestone < 0.25) return <Redirect href="/(_tabs)/lair?tab=nexus" />;
 	return (
-		<DragonAppScreen title="The Earth" panel={tab === 'active' || tab === 'finished' || tab === 'surveys' ? 'goals' : 'population'} effects={tab === 'command'}>
-			<TabStrip tabs={EARTH_TABS} value={tab} onChange={setTab} milestone={milestone} />
+		<DragonAppScreen title="The Earth" panel={tab === 'active' || tab === 'finished' || tab === 'surveys' ? 'goals' : 'population'}>
+			<TabStrip tabs={EARTH_TABS.map(item => item.id === 'finished' ? { ...item, actionWarning: hasHarvestableGoals } : item)} value={tab} onChange={setTab} milestone={milestone} />
 			{milestone < requiredMilestone ?
 				<EmptyState icon="🔒" title="Earth chamber sealed" description={`Unlocks at Milestone ${milestoneLabel(requiredMilestone)}.`} />
 			: tab === 'command' ?
@@ -63,6 +68,7 @@ function CommandCenter() {
 	const heartCharge = useProductionSpecialStore(state => state.crimsonHeart.charge);
 	const progression = calculateProgressionPreview(heartCharge);
 	const clickWorld = useWorldStore(state => state.dragonStore.clickWorld);
+	const worldClickRest = useWorldStore(state => state.dragonStore.clickRest.world);
 	const furyBand = getFuryBand();
 	const furyStage = displayFuryStage(furyBand, angerShields);
 	const furyThreshold = dragon.furyThreshold.toNumber();
@@ -77,7 +83,7 @@ function CommandCenter() {
 		if (population) {
 			const id = Date.now();
 			setClickFeedback({ id, x, y, population });
-			setTimeout(() => setClickFeedback(current => (current?.id === id ? undefined : current)), 900);
+			setTimeout(() => setClickFeedback(current => (current?.id === id ? undefined : current)), 16);
 		}
 	};
 	return (
@@ -118,6 +124,8 @@ function CommandCenter() {
 			<Pressable
 				accessibilityRole="button"
 				accessibilityLabel="Grow the world"
+				accessibilityState={{ disabled: worldClickRest.ticksRemaining > 0 }}
+				disabled={worldClickRest.ticksRemaining > 0}
 				onLayout={event => setStageWidth(event.nativeEvent.layout.width)}
 				onPress={event => tapEarth(event.nativeEvent.locationX, event.nativeEvent.locationY)}
 				style={styles.earthStage}>
@@ -133,6 +141,7 @@ function CommandCenter() {
 					</Animated.Text>
 				:	null}
 				<Text style={styles.tapHint}>Tap the Earth for growth</Text>
+				<ClickRestOverlay label="Earth" rest={worldClickRest} />
 			</Pressable>
 			<Card accent="crimson">
 				<SectionTitle title="Dragon's Fury / Anger Level" detail={`Milestone 1 · ${furyStage} · ${angerShields.toFixed(0)} / ${formatDecimal(furyThreshold, 0)} shields`} />
@@ -143,7 +152,7 @@ function CommandCenter() {
 			</Card>
 			<Card accent="blue">
 				<SectionTitle title="Earth Clickers" detail="Permanent Population upgrades for the World page." />
-				<Text style={uiStyles.muted}>Earth clicks start at 1 Population. These upgrades persist through Armageddons and Transcensions, reveal in sequence, and disappear forever when maxed.</Text>
+				<Text style={uiStyles.muted}>Earth clicks start at 1 million Population and scale smoothly to a 1-billion base maximum. These upgrades persist through Armageddons and Transcensions, reveal in sequence, and remain marked MAXXED when finished.</Text>
 				<Text style={uiStyles.muted}>Buy one level of the last visible clicker to reveal the next at no unlock cost.</Text>
 			</Card>
 			<ClickerList items={EARTH_CLICKERS} />

@@ -3,8 +3,8 @@ import type { GoalMultiplierArchetype, GoalMultiplierUpgradeLevels, GoalMultipli
 /** XP needed to advance from a level, rounded down to keep the UI predictable. */
 export const goalMultiplierXpRequirement = (_level: number) => 250;
 
-/** Each level compounds the archetype's base multiplier and its upgrade bonus. */
-export const goalMultiplierValue = (xp: number, gildEffect = 1) => 1 + (Math.pow(1.005, Math.max(0, xp)) - 1) * Math.max(1, gildEffect);
+/** Each XP compounds the archetype multiplier by 1.002; Goal Power is its percent above x1. */
+export const goalMultiplierValue = (xp: number, gildEffect = 1) => 1 + (Math.pow(1.002, Math.max(0, xp)) - 1) * Math.max(1, gildEffect);
 
 export const goalMultiplierUpgradeCost = (_upgradeLevel: number) => 10;
 

@@ -4,7 +4,7 @@ import type { ProductivitySlice, ProductivityStoreState } from './_useProductivi
 export type SurveyQuestionId = 'mood' | 'create-habit' | 'create-task' | 'review-goals' | 'advice' | 'journal';
 export type QuotePosition = 'start' | 'end';
 
-export const DEFAULT_GOAL_CATEGORIES = ['personal', 'mental', 'physical', 'career', 'relationships', 'contribution', 'financial', 'other'] as const;
+export const DEFAULT_GOAL_CATEGORIES = ['personal', 'mental-health', 'fun', 'intellectual', 'educational', 'health', 'fitness', 'diet', 'family', 'relationships', 'community', 'spiritual', 'financial', 'career', 'custom'] as const;
 export const DEFAULT_SURVEY_EMOTIONS = [
 	'excited', 'surprised', 'shocked', 'enraged', 'disgusted',
 	'fulfilled', 'calm', 'content', 'uneasy', 'confused', 'anxious',

@@ -1,4 +1,4 @@
-import { AMPLIFIERS } from '@/data/production-data';
+import { AMPLIFIERS, AMPLIFIER_UNLOCK_LEVEL } from '@/data/production-data';
 import type { AmplifierDefinition } from '@/types/production.types';
 import { scopeNestedSlice } from '../nested-slice';
 import type { ProductionSlice, ProductionStoreState } from './_useProductionStore';
@@ -30,7 +30,7 @@ export const createAmplifierSlice: ProductionSlice<'amplifierStore'> = (set, get
 			isUnlocked: amplifierId => getSlice().unlockedIds.includes(amplifierId),
 			recordPurchase: (amplifierId, nextLevel) => {
 				const amplifierIndex = AMPLIFIERS.findIndex(amplifier => amplifier.id === amplifierId);
-				const nextAmplifierId = amplifierIndex >= 0 && nextLevel >= 5 ? AMPLIFIERS[amplifierIndex + 1]?.id : undefined;
+				const nextAmplifierId = amplifierIndex >= 0 && nextLevel >= AMPLIFIER_UNLOCK_LEVEL ? AMPLIFIERS[amplifierIndex + 1]?.id : undefined;
 				if (nextAmplifierId && !getSlice().unlockedIds.includes(nextAmplifierId)) setSlice(state => ({ unlockedIds: [...state.unlockedIds, nextAmplifierId] }));
 			},
 			reset: () => setSlice(initialState()),

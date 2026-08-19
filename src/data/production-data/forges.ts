@@ -12,7 +12,7 @@ export const FORGES: ForgeDefinition[] = [
 		persistsOnTranscension: false,
 		forgeTarget: 'amplifier',
 	},
-	{ id: 'chaos-forge-gilding', name: "Chaos's Forge", kind: 'forge', description: 'Gilds goal multipliers and increases their XP effect.', costs: [{ resource: 'plasma', base: '4', growthFactor: 4 }], unlocks: [{ metric: 'effect', effectId: 'chaos-forge' }], persistsOnArmageddon: true, persistsOnTranscension: false, forgeTarget: 'goal' },
+	{ id: 'chaos-forge-gilding', name: "Chaos's Forge", kind: 'forge', description: 'Gilds goal multipliers and increases their Goal Power effect. Each upgrade costs 10^(upgrade number) Plasma.', costs: [{ resource: 'plasma', base: '10', growthFactor: 10 }], unlocks: [{ metric: 'effect', effectId: 'chaos-forge' }], persistsOnArmageddon: true, persistsOnTranscension: false, forgeTarget: 'goal' },
 	{
 		id: 'olympian-cyclopes-forge',
 		name: 'Olympian Cyclopes Forge',

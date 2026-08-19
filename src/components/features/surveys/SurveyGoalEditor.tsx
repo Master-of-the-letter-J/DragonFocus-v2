@@ -1,4 +1,5 @@
 import { ActionButton, Card, Chip, EmptyState, SectionTitle, TabStrip, uiStyles } from '@/components/ui/DragonUI';
+import { GoalEditorModal, type EditorTarget } from '@/components/pages/earth/GoalEditorModal';
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
 import { DEFAULT_GOAL_CATEGORIES } from '@/store/store-productivity/createSurveyPreferencesSlice';
 import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
@@ -29,7 +30,8 @@ export function SurveyGoalEditor({ kind, onGoalAdded }: { kind: 'check-in' | 'ch
 	const [filter, setFilter] = useState<GoalFilter>('all');
 	const [title, setTitle] = useState('');
 	const [type, setType] = useState<Extract<GoalType, 'habit' | 'task'>>('task');
-	const [category, setCategory] = useState<GoalCategory>('other');
+	const [category, setCategory] = useState<GoalCategory>('personal');
+	const [editorTarget, setEditorTarget] = useState<EditorTarget>();
 	const activeGoals = useMemo(() => [...store.incompleteHabits, ...store.incompleteTasks], [store.incompleteHabits, store.incompleteTasks]);
 	const visibleGoals = filter === 'all' ? activeGoals : activeGoals.filter(goal => goal.type === filter);
 	const categories = useMemo(() => [...DEFAULT_GOAL_CATEGORIES, ...customCategories], [customCategories]);
@@ -59,14 +61,15 @@ export function SurveyGoalEditor({ kind, onGoalAdded }: { kind: 'check-in' | 'ch
 			<TabStrip tabs={GOAL_FILTERS} value={filter} onChange={setFilter} />
 			{visibleGoals.length ?
 				<View style={styles.goalList}>
-					{visibleGoals.map(goal => <SurveyGoalCard key={goal.id} goal={goal} onComplete={() => store.completeGoal(goal.id)} onRemove={() => store.removeGoal(goal.id)} />)}
+					{visibleGoals.map(goal => <SurveyGoalCard key={goal.id} goal={goal} onComplete={() => store.completeGoal(goal.id)} onEdit={() => setEditorTarget({ kind: 'edit', goal })} onRemove={() => store.removeGoal(goal.id)} />)}
 				</View>
 			:	<EmptyState icon="✓" title="No active goals in this view" description="Add a habit or task above, or switch to Show all." />}
+			{editorTarget ? <GoalEditorModal key={editorTarget.kind === 'edit' ? editorTarget.goal.id : `create-${editorTarget.type}`} target={editorTarget} customCategories={customCategories} onClose={() => setEditorTarget(undefined)} /> : null}
 		</Card>
 	);
 }
 
-function SurveyGoalCard({ goal, onComplete, onRemove }: { goal: Goal; onComplete: () => void; onRemove: () => void }) {
+function SurveyGoalCard({ goal, onComplete, onEdit, onRemove }: { goal: Goal; onComplete: () => void; onEdit: () => void; onRemove: () => void }) {
 	return (
 		<Animated.View entering={FadeInDown.duration(220)}>
 			<Card>
@@ -83,6 +86,7 @@ function SurveyGoalCard({ goal, onComplete, onRemove }: { goal: Goal; onComplete
 					</View>
 					<View style={styles.goalActions}>
 						<ActionButton compact label="Done" onPress={onComplete} />
+						<ActionButton compact tone="quiet" label="Edit" onPress={onEdit} />
 						<ActionButton compact tone="quiet" label="Remove" onPress={onRemove} />
 					</View>
 				</View>

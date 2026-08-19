@@ -35,7 +35,7 @@ export const CLICKERS: ClickerDefinition[] = [
 		effect: 'production-ticks',
 		value: 0.2,
 	},
-	{ id: 'gaias-gift', name: "Gaia's Gift", kind: 'clicker', description: 'Adds +1 × 10^(upgrade level) Population to every Earth click.', costs: [{ resource: 'energy', base: '5', growthFactor: 4 }], maxLevel: 9, persistsOnArmageddon: true, persistsOnTranscension: true, effect: 'population', value: 10 },
+	{ id: 'gaias-gift', name: "Gaia's Gift", kind: 'clicker', description: 'Smoothly raises base Earth clicks from 1 million Population at level 0 to the 1-billion cap at level 9.', costs: [{ resource: 'energy', base: '5', growthFactor: 4 }], maxLevel: 9, persistsOnArmageddon: true, persistsOnTranscension: true, effect: 'population', value: Math.pow(10, 1 / 3) },
 	{
 		id: 'un-worldly-clicks',
 		name: 'Un-Worldly Clicks',
@@ -138,7 +138,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 	},
 	{
 		id: 'crimson-efficiency',
-		name: 'Crimson Efficiency',
+		name: 'Shard Efficiency',
 		kind: 'energy-upgrade',
 		description: 'Adds 1% Energy per unspent Crimson Shard.',
 		costs: [{ resource: 'darkEnergy', base: '5', growthFactor: 1 }],
@@ -218,7 +218,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 		costs: [{ resource: 'darkEnergy', base: '500000', growthFactor: 2 }],
 		activationCosts: [{ resource: 'energy', base: '1000000000000000000000', growthFactor: 1 }],
 		oneTimeUntilTranscension: ['darkEnergy'],
-		unlocks: [{ metric: 'milestone', amount: 10 }],
+		unlocks: [{ metric: 'milestone', amount: 10 }, { metric: 'armageddons', amount: 1 }],
 		maxLevel: 20,
 		persistsOnArmageddon: false,
 		persistsOnTranscension: false,
@@ -229,7 +229,7 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 		id: 'amplifier-discount-glitch',
 		name: 'Amplifier Discount Glitch',
 		kind: 'energy-upgrade',
-		description: 'Reduces amplifier costs by 10% plus Hermes level.',
+		description: 'Reduces all amplifier costs by 10% plus Hermes level per upgrade, multiplicatively.',
 		costs: [{ resource: 'darkEnergy', base: '10', growthFactor: 10 }],
 		activationCosts: [{ resource: 'energy', base: '1000', growthFactor: 1 }],
 		oneTimeUntilTranscension: ['darkEnergy'],
@@ -252,12 +252,26 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 		value: 0.25,
 	},
 	{
+		id: 'producer-discount-glitch',
+		name: 'Producer Discount Glitch',
+		kind: 'producer-upgrade',
+		description: 'Reduces all producer costs by 10% plus Hermes level per upgrade, multiplicatively.',
+		costs: [{ resource: 'darkEnergy', base: '10', growthFactor: 10 }],
+		activationCosts: [{ resource: 'energy', base: '1000', growthFactor: 1 }],
+		oneTimeUntilTranscension: ['darkEnergy'],
+		unlocks: [{ metric: 'owned-item', itemId: 'hermes', amount: 1 }],
+		persistsOnArmageddon: false,
+		persistsOnTranscension: false,
+		effect: 'producer-discount-glitch',
+		value: 0.1,
+	},
+	{
 		id: 'crimson-activation',
 		name: 'Crimson Activation',
 		kind: 'energy-upgrade',
 		description: 'Adds 0.1% Crimson Heart charge while Dragon Focus is active or offline.',
 		costs: [{ resource: 'energy', base: '100', growthFactor: 10 }],
-		maxLevel: 9,
+		maxLevel: 10,
 		persistsOnArmageddon: true,
 		persistsOnTranscension: true,
 		effect: 'crimson-activation',
@@ -357,6 +371,26 @@ export const ENERGY_UPGRADES: UpgradeDefinition[] = [
 		value: 10,
 	},
 ];
+
+const CRIMSON_HEART_UPGRADE_IDS = [
+	'crimson-activation',
+	'crimson-heart-boost',
+	'crimson-off-phone-tempo',
+	'crimson-pomodoro-tempo',
+	'crimson-offline-awakening',
+	'crimson-pomodoro-awakening',
+] as const;
+
+/** Heart-only upgrades, kept in the exact order they are progressively revealed. */
+export const CRIMSON_HEART_UPGRADES = CRIMSON_HEART_UPGRADE_IDS.map(id => ENERGY_UPGRADES.find(item => item.id === id)!);
+
+/** The eight upgrades shown exclusively in the Amplifier Efficiency chamber. */
+export const AMPLIFIER_EFFICIENCY_UPGRADES = ENERGY_UPGRADES.filter(
+	item => item.kind === 'energy-upgrade' && !CRIMSON_HEART_UPGRADE_IDS.some(id => id === item.id),
+);
+
+/** Global producer discounts shown after the per-producer Type I upgrades. */
+export const PRODUCER_GLOBAL_UPGRADES = ENERGY_UPGRADES.filter(item => item.id === 'producer-discount' || item.id === 'producer-discount-glitch');
 
 /** The six selectable goal archetypes with permanent Dark Energy multipliers. */
 export const GOAL_MULTIPLIERS: UpgradeDefinition[] = ['personal', 'scholar', 'athlete', 'entrepreneur', 'fellowship', 'balanced'].map(archetype => ({

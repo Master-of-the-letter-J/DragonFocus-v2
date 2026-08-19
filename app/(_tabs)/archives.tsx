@@ -15,7 +15,7 @@ import { useProductivityStore } from '@/store/store-productivity/_useProductivit
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { useStatsStore } from '@/store/useStatsStore';
 import { formatDecimal } from '@/utils/decimal';
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
@@ -25,12 +25,14 @@ const ARCHIVE_MOOD_EMOJIS: Record<string, string> = { excited: '🤩', surprised
 const archiveMood = (mood?: string) => mood ? `${ARCHIVE_MOOD_EMOJIS[mood] ?? '💭'} ${mood.replace(/\b\w/g, character => character.toUpperCase())}` : '—';
 export default function ArchivesRoute() {
 	const params = useLocalSearchParams<{ tab?: ArchiveTab }>();
-	const [tab, setTab] = useState<ArchiveTab>(ARCHIVE_TABS.some(candidate => candidate.id === params.tab) ? params.tab! : 'pact');
+	const [tab, setTab] = useState<ArchiveTab>(ARCHIVE_TABS.some(candidate => candidate.id === params.tab) ? params.tab! : 'records');
 	const totalEnergy = useWorldStore(state => state.resourceStore.totalAllTime.energy);
+	const dragonSpawned = useWorldStore(state => state.dragonStore.dragonSpawned);
 	const milestone = milestoneForEnergy(totalEnergy);
 	const requiredMilestone = ARCHIVE_TABS.find(candidate => candidate.id === tab)?.unlockMilestone ?? 0;
+	if (!dragonSpawned || milestone < 1) return <Redirect href="/(_tabs)/lair?tab=nexus" />;
 	return (
-		<DragonAppScreen title="The Scrolls" panel="spells" effects={tab === 'market'}>
+		<DragonAppScreen title="The Scrolls" panel={milestone >= 3 ? 'spells' : 'world'}>
 			<TabStrip tabs={ARCHIVE_TABS} value={tab} onChange={setTab} milestone={milestone} />
 			{milestone < requiredMilestone ?
 				<EmptyState icon="🔒" title="Archive sealed" description={`Unlocks at Milestone ${requiredMilestone}.`} />
@@ -74,7 +76,7 @@ function DragonPact() {
 			</Card>
 			<Card>
 				<SectionTitle title="Benefits" />
-				{['Unlimited Habit and To-Do goals', `Up to ${DRAGON_PACT_BENEFITS.challengeLimitPerType} Quark and Crimson challenges per type`, 'Double Crimson Heart charge and maximum', 'Double Dark Energy from every Harvest', 'Double base XP and Fury reduction from every Harvest', 'Five-times goal shard cap', '10% bonus value throughout the Black Market, including shard packs'].map(benefit => (
+				{['Unlimited Habit and To-Do goals', `Up to ${DRAGON_PACT_BENEFITS.challengeGoalLimit} active Harvest or Quantum challenge goals`, 'Double Crimson Heart charge and maximum', 'Double Dark Energy from every Harvest', 'Double base XP and Fury reduction from every Harvest', 'Five-times goal shard cap', '10% bonus value throughout the Black Market, including shard packs'].map(benefit => (
 					<View key={benefit} style={styles.benefit}>
 						<Text style={styles.check}>✦</Text>
 						<Text style={uiStyles.body}>{benefit}</Text>

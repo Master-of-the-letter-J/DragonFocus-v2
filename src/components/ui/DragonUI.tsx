@@ -81,7 +81,7 @@ export function Chip({ label, selected = false, onPress, disabled = false }: { l
 }
 
 
-export function TabStrip<T extends string>({ tabs, value, onChange, milestone = Number.POSITIVE_INFINITY }: { tabs: readonly { id: T; label: string; unlockMilestone?: number; noticeId?: string; childNoticeIds?: readonly string[] }[]; value: T; onChange: (tab: T) => void; milestone?: number }) {
+export function TabStrip<T extends string>({ tabs, value, onChange, milestone = Number.POSITIVE_INFINITY }: { tabs: readonly { id: T; label: string; unlockMilestone?: number; noticeId?: string; childNoticeIds?: readonly string[]; actionWarning?: boolean }[]; value: T; onChange: (tab: T) => void; milestone?: number }) {
 	const noticesInitialized = useAppStore(state => state.pageUnlockNoticesInitialized);
 	const seenNoticeIds = useAppStore(state => state.seenPageUnlockNoticeIds);
 	const dismissNotice = useAppStore(state => state.dismissPageUnlockNotice);
@@ -96,7 +96,7 @@ export function TabStrip<T extends string>({ tabs, value, onChange, milestone = 
 			{tabs.map(tab => {
 				const locked = milestone < (tab.unlockMilestone ?? 0);
 				const noticeIds = [tab.noticeId, ...(tab.childNoticeIds ?? [])].filter((id): id is string => Boolean(id));
-				const warning = noticesInitialized && !locked && noticeIds.some(id => milestone >= (PAGE_UNLOCK_NOTICE_BY_ID[id]?.milestone ?? Number.POSITIVE_INFINITY) && !seenNoticeIds.includes(id));
+				const warning = !locked && (Boolean(tab.actionWarning) || noticesInitialized && noticeIds.some(id => milestone >= (PAGE_UNLOCK_NOTICE_BY_ID[id]?.milestone ?? Number.POSITIVE_INFINITY) && !seenNoticeIds.includes(id)));
 				return <Chip key={tab.id} label={locked ? `🔒 ${tab.label} · Milestone ${milestoneLabel(tab.unlockMilestone ?? 0)}` : warning ? `⚠️ ${tab.label}` : tab.label} disabled={locked} selected={tab.id === value} onPress={() => {
 					if (tab.noticeId) dismissNotice(tab.noticeId);
 					onChange(tab.id);
@@ -118,7 +118,9 @@ export function Stat({ label, value, tone = 'default' }: { label: string; value:
 }
 
 export function ProgressBar({ value, max = 100, color = colors.crimsonBright, label }: { value: number; max?: number; color?: string; label?: string }) {
-	const width = `${Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100))}%` as `${number}%`;
+	const safeValue = Number.isFinite(value) ? value : 0;
+	const safeMaximum = Number.isFinite(max) && max > 0 ? max : 1;
+	const width = `${Math.max(0, Math.min(100, (safeValue / safeMaximum) * 100))}%` as `${number}%`;
 	return (
 		<View style={styles.progressGroup}>
 			{label ?

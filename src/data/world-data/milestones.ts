@@ -9,8 +9,8 @@ export interface MilestoneDefinition {
 const earlyThresholds: readonly [number, DecimalSource][] = [
 	[0, 0],
 	[0.25, 50],
-	[0.5, 100],
-	[0.75, 250],
+	[0.5, 200],
+	[0.75, 500],
 	[1, '1e3'],
 	[2, '1e4'],
 	[3, '1e5'],
@@ -26,7 +26,7 @@ const earlyThresholds: readonly [number, DecimalSource][] = [
 /** Human-readable names for the fractional opening milestones. */
 export const milestoneLabel = (milestone: number) =>
 	milestone === 0.25 ? '1/4'
-	: milestone === 0.5 ? '1/2'
+	: milestone === 0.5 ? '2/4'
 	: milestone === 0.75 ? '3/4'
 	: `${milestone}`;
 

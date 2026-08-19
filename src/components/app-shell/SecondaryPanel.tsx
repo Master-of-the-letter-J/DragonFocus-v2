@@ -60,7 +60,7 @@ export function SecondaryPanel({ mode }: { mode: PanelMode }) {
 	const surveys = useProductivityStore(state => state.surveys);
 	const pomodoro = useProductivityStore(state => state.pomodoro);
 	const spells = useProductionSpecialStore(state => state.spells.spellInventory);
-	const heart = useProductionSpecialStore(useShallow(state => ({ charge: state.crimsonHeart.charge, getTargetCharge: state.crimsonHeart.getTargetCharge, getChargeRate: state.crimsonHeart.getChargeRate })));
+	const heart = useProductionSpecialStore(useShallow(state => ({ charge: state.crimsonHeart.charge, getTargetCharge: state.crimsonHeart.getTargetCharge, getChargeRate: state.crimsonHeart.getChargeRate, getDischargeRate: state.crimsonHeart.getDischargeRate })));
 	const offline = useOfflineProgressStore(useShallow(state => ({ offAppSeconds: state.offAppSeconds, allowedAppSeconds: state.allowedAppSeconds, blockedAppSeconds: state.blockedAppSeconds })));
 	const panelLayout = useAppStore(state => state.secondaryPanelLayout);
 	const gameMode = useWorldStore(state => state.optionsStore.gameMode);
@@ -69,8 +69,10 @@ export function SecondaryPanel({ mode }: { mode: PanelMode }) {
 	const furyStage = displayFuryStage(furyBand, angerShields);
 	const milestone = milestoneForEnergy(totalAllTime.energy);
 	const activity: AppActivity = pomodoro.status === 'countdown-active' || pomodoro.status === 'count-up' ? 'pomodoro' : pomodoro.status === 'countdown-break' ? 'pomodoro-break' : configuredActivity;
-	const activeGoalPressure = Math.max(0, goals.incompleteHabits.length - 10) + Math.max(0, goals.incompleteTasks.length - 10);
-	const averageHeart = mode === 'world' ? calculateAverageCrimsonHeartCharge(heart.charge, heart.getTargetCharge(activity), 3_600, heart.getChargeRate()) : 0;
+	const activeGoalPressure = Math.max(0, goals.incompleteHabits.length - 20) + Math.max(0, goals.incompleteTasks.length - 20);
+	const heartTarget = mode === 'world' ? heart.getTargetCharge(activity) : 0;
+	const heartRate = heartTarget < heart.charge ? heart.getDischargeRate() : heart.getChargeRate();
+	const averageHeart = mode === 'world' ? calculateAverageCrimsonHeartCharge(heart.charge, heartTarget, 3_600, heartRate) : 0;
 	const estimatedFuryPerHour = mode === 'world' ? calculateFuryChange(FURY_RATES[activity], WORLD_CONSTANTS.gameModes.furyMultiplier[gameMode], 3_600, activeGoalPressure, 1).times(Math.max(1, averageHeart)) : undefined;
 	const progression = mode === 'population' ? calculateProgressionPreview(heart.charge) : undefined;
 	const pendingGoals = mode === 'world' ? [...goals.completed, ...goals.specialHabits.filter(goal => goal.status === 'completed')].filter(goal => goals.pendingHarvestIds.includes(goal.id)) : [];
@@ -126,16 +128,20 @@ export function SecondaryPanel({ mode }: { mode: PanelMode }) {
 			{ id: 'deaths', label: 'Deaths', value: formatDecimal(deaths), icon: '†', color: colors.muted, description: 'The total population lost to threats and Fury effects during this run.' },
 		]
 	: [
-			{ id: 'milestone', label: 'Milestone', value: milestoneLabel(milestone), icon: '◆', color: colors.gold, description: 'Milestones are based on all-time Energy and unlock new chambers, systems, and rewards.' },
-			{ id: 'fury', label: 'Fury Trend', value: `${estimatedFuryPerHour!.gte(0) ? '+' : ''}${formatDecimal(estimatedFuryPerHour!)} / hr`, icon: '🔥', color: colors.crimsonBright, description: `The dragon is currently ${furyStage}. This estimate is for ${activityLabel(activity)} and includes Heart speed, game mode, active-goal pressure, and shields. The exact Fury total is in the compact row below.` },
-			{ id: 'streak', label: 'Streak', value: `${surveys.checkInStreak} · ${surveys.checkOutStreak}`, icon: '⟲', color: colors.gold, description: `Survey streaks: ${surveys.checkInStreak} check-in and ${surveys.checkOutStreak} check-out. Complete the daily survey cycle to keep both streaks moving.` },
-			{ id: 'important', label: 'World Status', value: `${dragon.ageDays.toFixed(1)}d · ${durationLabel(offlineSeconds)}`, icon: 'ⓘ', color: colors.violet, description: `Current activity: ${activityLabel(activity)}. Stored offline time: ${durationLabel(offlineSeconds)}. ${pendingGoals.length} completed goal${pendingGoals.length === 1 ? '' : 's'} waiting to be harvested.` },
+			...(milestone >= 0.25 ? [
+				{ id: 'milestone', label: 'Milestone', value: milestoneLabel(milestone), icon: '◆', color: colors.gold, description: 'Milestones are based on all-time Energy and unlock new chambers, systems, and rewards.' },
+				{ id: 'fury', label: 'Fury Trend', value: `${estimatedFuryPerHour!.gte(0) ? '+' : ''}${formatDecimal(estimatedFuryPerHour!)} / hr`, icon: '🔥', color: colors.crimsonBright, description: `The dragon is currently ${furyStage}. This estimate is for ${activityLabel(activity)} and includes Heart speed, game mode, active-goal pressure, and shields. The exact Fury total is in the compact row below.` },
+			] : []),
+			...(milestone >= 0.5 ? [
+				{ id: 'streak', label: 'Streak', value: `${surveys.checkInStreak} · ${surveys.checkOutStreak}`, icon: '⟲', color: colors.gold, description: `Survey streaks: ${surveys.checkInStreak} check-in and ${surveys.checkOutStreak} check-out. Complete the daily survey cycle to keep both streaks moving.` },
+			] : []),
+				{ id: 'important', label: 'World Status', value: `${dragon.ageDays.toFixed(1)}d · ${durationLabel(offlineSeconds)}`, icon: 'ⓘ', color: colors.violet, description: `Current activity: ${activityLabel(activity)}. Stored offline time: ${durationLabel(offlineSeconds)}. ${pendingGoals.length} completed goal${pendingGoals.length === 1 ? '' : 's'} waiting to be harvested.` },
 	];
 	const selectedEntry = entries.find(entry => entry.id === selectedId);
 
 	return (
 		<View style={styles.panel}>
-			<PanelHeading title={panelCopy.title} hint={panelCopy.hint} />
+			<PanelHeading title={panelCopy.title} hint={mode === 'world' && milestone < 0.25 ? 'Dragon status and offline readiness' : panelCopy.hint} />
 			<View style={[styles.entryContent, panelLayout === 'vertical' && styles.entryContentVertical]}>
 				{entries.map(entry => <PanelItem key={entry.id} entry={entry} selected={selectedId === entry.id} vertical={panelLayout === 'vertical'} fiveAcross={mode === 'goals'} onPress={() => setSelectedId(current => current === entry.id ? undefined : entry.id)} />)}
 			</View>

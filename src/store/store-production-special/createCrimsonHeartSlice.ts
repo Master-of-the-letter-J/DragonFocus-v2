@@ -13,6 +13,7 @@ export interface CrimsonHeartStoreState {
 	getMaximumCharge: () => number;
 	getTargetCharge: (activity: AppActivity) => number;
 	getChargeRate: () => number;
+	getDischargeRate: () => number;
 	setCharge: (charge: number) => void;
 	tick: (activity: AppActivity, seconds: number) => number;
 	reset: () => void;
@@ -68,13 +69,15 @@ export const createCrimsonHeartSlice: ProductionSpecialSlice<'crimsonHeart'> = (
 			...initialState(),
 			getMaximumCharge: maximumCharge,
 			getTargetCharge: crimsonHeartTarget,
-			getChargeRate: () => WORLD_CONSTANTS.crimsonHeartRatePerSecond * heartScale(),
+			getChargeRate: () => WORLD_CONSTANTS.crimsonHeartRatePerSecond,
+			getDischargeRate: () => WORLD_CONSTANTS.crimsonHeartDischargeRatePerSecond,
 			setCharge: charge => setSlice({ charge: Math.max(0, Math.min(maximumCharge(), charge)) }),
 			tick: (activity, seconds) => {
 				if (!Number.isFinite(seconds) || seconds <= 0) return getSlice().charge;
 				const current = getSlice().charge;
 				const target = crimsonHeartTarget(activity);
-				const charge = Math.max(0, Math.min(maximumCharge(), current + Math.sign(target - current) * Math.min(Math.abs(target - current), seconds * WORLD_CONSTANTS.crimsonHeartRatePerSecond * heartScale())));
+				const rate = target < current ? WORLD_CONSTANTS.crimsonHeartDischargeRatePerSecond : WORLD_CONSTANTS.crimsonHeartRatePerSecond;
+				const charge = Math.max(0, Math.min(maximumCharge(), current + Math.sign(target - current) * Math.min(Math.abs(target - current), seconds * rate)));
 				setSlice({ charge });
 				return charge;
 			},

@@ -133,9 +133,12 @@ export const createOnlineTickSlice: OnlineProgressSlice<'tickWorld' | 'giveOffli
 			.plus(onlineLog10(decimalMax(resources.resources.chaosEnergy, 1)) * (deityLevels.theia ?? 0) * 20);
 		const maxFury = furyThreshold.times(WORLD_CONSTANTS.dragon.furyDeathMultiplier).times(WORLD_CONSTANTS.gameModes.maxFuryMultiplier[mode]);
 		const heartAtStart = special.crimsonHeart.charge;
+		const heartTarget = special.crimsonHeart.getTargetCharge(activity);
+		const heartRate = heartTarget < heartAtStart ? special.crimsonHeart.getDischargeRate() : special.crimsonHeart.getChargeRate();
 		const nextHeart = special.crimsonHeart.tick(activity, seconds);
-		const averageHeart = calculateAverageCrimsonHeartCharge(heartAtStart, nextHeart, seconds, special.crimsonHeart.getChargeRate());
-		const extraGoals = Math.max(0, goals.incompleteHabits.length - 10) + Math.max(0, goals.incompleteTasks.length - 10);
+		const averageHeart = calculateAverageCrimsonHeartCharge(heartAtStart, nextHeart, seconds, heartRate);
+		dragon.advanceClickRest(Math.max(WORLD_CONSTANTS.clickRest.minimumTicksPerSecond, averageHeart) * seconds);
+		const extraGoals = Math.max(0, goals.incompleteHabits.length - 20) + Math.max(0, goals.incompleteTasks.length - 20);
 		const lateGoals = [...goals.incompleteHabits, ...goals.incompleteTasks].filter(goal => goal.dueAt && Date.parse(goal.dueAt) < Date.now()).length;
 		const rawFuryDelta = calculateFuryChange(furyRates[activity], WORLD_CONSTANTS.gameModes.furyMultiplier[mode], seconds, extraGoals + lateGoals * 4, titanomachyMultiplier).times(Math.max(1, averageHeart));
 		const calmSpellMultiplier = calculateTimedSpellMultiplier(activeSpells, 'furyReduction', seconds);

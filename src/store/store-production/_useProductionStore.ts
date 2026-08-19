@@ -180,8 +180,10 @@ const createProductionSlice: StateCreator<ProductionStoreState, [], [], Producti
 		const levels = get().levels;
 		const hermesDiscount = (levels.hermes ?? 0) * 0.01;
 		const repairDiscount = item.kind === 'producer' ? Math.min(1, (levels['producer-discount'] ?? 0) * 0.25) : 0;
-		const amplifierDiscount = item.kind === 'amplifier' ? Math.min(0.9, (levels['amplifier-discount-glitch'] ?? 0) * (0.1 + hermesDiscount)) : 0;
-		const discount = 1 - amplifierDiscount;
+		const amplifierDiscountLevels = item.kind === 'amplifier' ? (levels['amplifier-discount-glitch'] ?? 0) : 0;
+		const producerDiscountLevels = item.kind === 'producer' ? (levels['producer-discount-glitch'] ?? 0) : 0;
+		const glitchFactorPerLevel = Math.max(0, 1 - (0.1 + hermesDiscount));
+		const purchaseDiscountFactor = Math.pow(glitchFactorPerLevel, amplifierDiscountLevels + producerDiscountLevels);
 		const amount = Math.max(1, Math.floor(quantity));
 		const paidLevel = get().paidCostLevels[itemId] ?? 0;
 		const totals: Partial<Record<SpendableResourceId, ReturnType<typeof decimal>>> = {};
@@ -216,8 +218,8 @@ const createProductionSlice: StateCreator<ProductionStoreState, [], [], Producti
 			const belowPreviousBest = Math.max(0, (get().producerStore.bestLevels[itemId] ?? owned) - owned);
 			const repairQuantity = Math.min(payableQuantity, destroyed, belowPreviousBest);
 			const regularQuantity = payableQuantity - repairQuantity;
-			const repairValue = repairQuantity ? geometricCost(cost, start, repairQuantity).times(1 - repairDiscount) : decimal(0);
-			const regularValue = regularQuantity ? geometricCost(cost, start + repairQuantity, regularQuantity).times(discount) : decimal(0);
+			const repairValue = repairQuantity ? geometricCost(cost, start, repairQuantity).times(1 - repairDiscount).times(purchaseDiscountFactor) : decimal(0);
+			const regularValue = regularQuantity ? geometricCost(cost, start + repairQuantity, regularQuantity).times(purchaseDiscountFactor) : decimal(0);
 			const value = repairValue.plus(regularValue);
 			totals[cost.resource] = (totals[cost.resource] ?? decimal(0)).plus(value);
 		}

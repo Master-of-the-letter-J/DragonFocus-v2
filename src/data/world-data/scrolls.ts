@@ -15,7 +15,7 @@ export const SCROLL_TABS: readonly ScrollTabDefinition[] = [
 		name: 'The Dragon Pact',
 		milestone: 2,
 		description: 'Account synchronization and optional premium benefits.',
-		info: ['Sign-up reward: 50 Crimson Shards.', 'Unlimited Habit and To-Do goals.', 'Much higher Crimson and Quark Challenge limits.', 'Crimson Heart charge and maximums: x2.', 'Harvest Dark Energy: x2.', 'Harvest base XP and Fury reduction: x2.', 'Goal shard cap: x5.', 'Black Market rewards, including shard packs: +10%.', 'Pricing B: $1.99 monthly, $4.99 yearly, or $14.99 lifetime.'],
+		info: ['Sign-up reward: 50 Crimson Shards.', 'Unlimited Habit and To-Do goals.', 'Up to 25 active Harvest or Quantum challenge goals.', 'Crimson Heart charge and maximums: x2.', 'Harvest Dark Energy: x2.', 'Harvest base XP and Fury reduction: x2.', 'Goal shard cap: x5.', 'Black Market rewards, including shard packs: +10%.', 'Pricing B: $1.99 monthly, $4.99 yearly, or $14.99 lifetime.'],
 	},
 	{
 		id: 'black-market',

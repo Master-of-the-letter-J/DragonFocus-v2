@@ -8,6 +8,17 @@ import { useStatsStore } from '../useStatsStore';
 import { useWorldStore } from '../store-world/_useWorldStore';
 import { initialPrestigeState, type ApocalypseType, type PrestigeSlice } from './prestige.types';
 
+export const APOCALYPSE_GOAL_REQUIREMENTS: Partial<Record<ApocalypseType, readonly GoalMultiplierArchetype[]>> = {
+	freeze: ['personal', 'scholar'],
+	wrath: ['personal', 'athlete'],
+	reincarnation: ['fellowship', 'scholar'],
+	invasion: ['fellowship', 'entrepreneur'],
+	roulette: ['entrepreneur', 'balanced'],
+};
+
+export const apocalypseUnlockCost = (completedApocalypses: readonly ApocalypseType[]) =>
+	decimal(100).times(decimal(100).pow(completedApocalypses.filter(type => !['sacrifice', 'shadow'].includes(type)).length));
+
 export const createArmageddonSlice: PrestigeSlice<'setSelectedApocalypse' | 'unlockApocalypse' | 'upgradeApocalypse' | 'respecApocalypseUpgrades' | 'commitArmageddon' | 'recordArmageddon' | 'recordApocalypse'> = (set, get) => ({
 	setSelectedApocalypse: selectedApocalypse => {
 		if (get().completedApocalypses.includes(selectedApocalypse)) set({ selectedApocalypse });
@@ -16,19 +27,14 @@ export const createArmageddonSlice: PrestigeSlice<'setSelectedApocalypse' | 'unl
 		const state = get();
 		if (state.completedApocalypses.includes(type)) return false;
 
-		const requiredArchetypes: Partial<Record<ApocalypseType, readonly GoalMultiplierArchetype[]>> = {
-			freeze: ['personal', 'scholar'],
-			wrath: ['personal', 'athlete'],
-			reincarnation: ['fellowship', 'scholar'],
-			invasion: ['fellowship', 'entrepreneur'],
-			roulette: ['entrepreneur', 'balanced'],
-		};
 		const goalLevels = useProductionStore.getState().goalMultiplierStore.levels;
-		if (!(requiredArchetypes[type] ?? []).every(archetype => goalLevels[archetype] >= 1)) return false;
+		const requiredArchetypes = APOCALYPSE_GOAL_REQUIREMENTS[type];
+		if (!requiredArchetypes?.length || !requiredArchetypes.every(archetype => goalLevels[archetype] >= 1)) return false;
 
-		const cost = decimal(100).times(decimal(100).pow(state.completedApocalypses.length));
+		const cost = apocalypseUnlockCost(state.completedApocalypses);
 		if (!useWorldStore.getState().resourceStore.spendResource('plasma', cost)) return false;
 		set(current => ({
+			selectedApocalypse: type,
 			completedApocalypses: [...current.completedApocalypses, type],
 			apocalypseLevels: { ...current.apocalypseLevels, [type]: 0 },
 		}));
@@ -65,7 +71,7 @@ export const createArmageddonSlice: PrestigeSlice<'setSelectedApocalypse' | 'unl
 	commitArmageddon: () => {
 		const world = useWorldStore.getState();
 		const resources = world.resourceStore;
-		if (resources.totalThisTranscension.darkEnergy.lt(WORLD_CONSTANTS.armageddonDarkEnergyBase)) return false;
+		if (resources.totalAllTime.darkEnergy.lt(WORLD_CONSTANTS.armageddonDarkEnergyBase)) return false;
 
 		const production = useProductionStore.getState();
 		const deityLevels = getDeityLevels(production.levels);

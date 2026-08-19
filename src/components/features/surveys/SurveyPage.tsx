@@ -241,7 +241,7 @@ export function SurveyPage({ kind }: { kind: SurveyKind }) {
 							<Text style={styles.questionTitle}>{isCheckIn ? 'Set your intention' : 'Leave a final note'}</Text>
 							<Text style={styles.questionDescription}>{isCheckIn ? 'What would make today feel deliberately spent?' : 'What should tomorrow remember?'}</Text>
 							<TextInput multiline value={reflection} onChangeText={setReflection} placeholder="Write a brief reflection…" placeholderTextColor={colors.muted} style={[styles.input, styles.journal]} />
-							<Card accent={isCheckIn ? 'gold' : 'crimson'}><SectionTitle title={isCheckIn ? 'The dragon is listening' : 'The archive is ready'} detail={isCheckIn ? `${goals.incompleteHabits.length + goals.incompleteTasks.length} active goals will enter the day.` : `${goals.pendingHarvestIds.length} rewards can be harvested from Finished Goals.`} /></Card>
+							<Card accent={isCheckIn ? 'gold' : 'crimson'}><SectionTitle title={isCheckIn ? 'The dragon is listening' : 'The archive is ready'} detail={isCheckIn ? `${goals.incompleteHabits.length + goals.incompleteTasks.length} active goals will enter the day.` : `${goals.pendingHarvestIds.length} rewards can be collected from Harvest Goals.`} /></Card>
 						</>
 					: 	<><Text style={styles.questionTitle}>Ready when you are</Text><Text style={styles.questionDescription}>No optional questions are enabled. Complete the survey to continue.</Text></>}
 					{!isResultsStep && preferences.quotePosition === 'end' && step === questions.length - 1 ? <QuoteCards quotes={quotes} /> : null}

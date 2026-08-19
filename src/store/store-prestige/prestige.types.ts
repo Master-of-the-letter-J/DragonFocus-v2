@@ -40,7 +40,7 @@ export const initialPrestigeState = () => ({
 	selectedApocalypse: 'sacrifice' as ApocalypseType,
 	armageddonStartedAt: new Date().toISOString(),
 	completedApocalypses: ['sacrifice'] as ApocalypseType[],
-	apocalypseLevels: { sacrifice: 0, shadow: 0, freeze: 0, wrath: 0, reincarnation: 0, invasion: 0, roulette: 0 } as Record<ApocalypseType, number>,
+	apocalypseLevels: { sacrifice: 1, shadow: 0, freeze: 0, wrath: 0, reincarnation: 0, invasion: 0, roulette: 0 } as Record<ApocalypseType, number>,
 	anomaliesFromPlasma: '0',
 });
 

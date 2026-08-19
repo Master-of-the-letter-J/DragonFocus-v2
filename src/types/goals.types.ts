@@ -27,11 +27,13 @@ export interface GoalBase {
 	pinned: boolean;
 	pomodoroPinned: boolean;
 	estimatedPomodoros: number;
-	challenge: 'none' | 'crimson' | 'quantum' | 'both';
+	challenge: 'none' | 'harvest' | 'quantum' | 'both';
+	challengeFailed?: boolean;
 	subgoals: SubGoal[];
 	status: GoalStatus;
 	createdAt: string;
 	completedAt?: string;
+	streakBeforeCompletion?: number;
 	archivedAt?: string;
 	dueAt?: string;
 	rewardBlocked: boolean;
@@ -57,6 +59,7 @@ export interface SpecialHabitGoal extends Omit<HabitGoal, 'type'> {
 	type: 'special-habit';
 	specialKind: SpecialHabitKind;
 	repairPending: boolean;
+	lastRewardedOn?: string;
 }
 
 export type Goal = HabitGoal | TaskGoal | SpecialHabitGoal;

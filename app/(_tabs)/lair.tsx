@@ -4,13 +4,17 @@ import { LairPurchaseButton, formatPurchaseCosts, missingPurchaseCosts } from '@
 import { LAIR_TABS, PRESTIGE_TABS, PRODUCTION_TABS, SPECIAL_PRODUCTION_TABS, UPGRADE_TABS, type LairTab, type PrestigeTab, type ProductionTab, type SpecialProductionTab, type UpgradeTab } from '@/components/pages/lair/lair-tabs';
 import { styles } from '@/components/pages/lair/lair.styles';
 import { ActionButton, Card, Chip, EmptyState, PageIntro, ProgressBar, SectionTitle, Stat, TabStrip, uiStyles } from '@/components/ui/DragonUI';
+import { ClickRestOverlay } from '@/components/ui/ClickRestOverlay';
 import { dragonTheme } from '@/constants/dragon-theme';
+import { WORLD_CONSTANTS } from '@/constants/world.constants';
 import { calculateProgressionPreview } from '@/data/calculations/progression-preview';
-import { AMPLIFIERS, APOCALYPSE_BOOST_UPGRADES, DEITIES, DRAGON_CLICKERS, ENERGY_UPGRADES, FORGES, GOAL_MULTIPLIERS, PRODUCERS, PRODUCER_UPGRADES, SPECIAL_GENERATORS, TITANS } from '@/data/production-data';
+import { goalMultiplierValue, goalMultiplierXpRequirement } from '@/data/calculations/formula-goal-multipliers';
+import { AMPLIFIERS, AMPLIFIER_EFFICIENCY_UPGRADES, AMPLIFIER_UNLOCK_LEVEL, APOCALYPSE_BOOST_UPGRADES, CRIMSON_HEART_UPGRADES, DEITIES, DRAGON_CLICKERS, FORGES, PRODUCERS, PRODUCER_GLOBAL_UPGRADES, PRODUCER_UPGRADES, SPECIAL_GENERATORS, TITANS } from '@/data/production-data';
 import { DRAGON_QUOTES } from '@/data/statistics-data/dragon-quotes';
 import { MILESTONES, milestoneForEnergy, milestoneLabel } from '@/data/world-data/milestones';
 import { useOnlineProgressStore } from '@/store/store-online-progress/_useOnlineProgressStore';
 import { usePrestigeStore } from '@/store/store-prestige/_usePrestigeStore';
+import { APOCALYPSE_GOAL_REQUIREMENTS, apocalypseUnlockCost } from '@/store/store-prestige/createArmageddonSlice';
 import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
 import type { SpellConversionMode } from '@/store/store-production-special/createConvertorSlice';
 import { FUELABLE_MONUMENT_IDS } from '@/store/store-production-special/createMonumentsSlice';
@@ -19,7 +23,8 @@ import { getProducerDisplayName } from '@/store/store-production/createProducerS
 import { useProductivityStore } from '@/store/store-productivity/_useProductivityStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { useAppStore } from '@/store/useAppStore';
-import type { ProductionItem } from '@/types/production.types';
+import type { ProductionItem, UnlockRequirement } from '@/types/production.types';
+import { GOAL_MULTIPLIER_ARCHETYPES, type GoalMultiplierArchetype } from '@/types/goal-multiplier.types';
 import type { ResourceAmounts } from '@/types/resources.types';
 import { decimal, formatDecimal } from '@/utils/decimal';
 import { SPELL_SIZES } from '@/data/world-data/spells';
@@ -44,9 +49,10 @@ export default function LairRoute() {
 	const checkedOut = useProductivityStore(state => state.surveys.checkOutCompleted);
 	const mode = useWorldStore(state => state.optionsStore.gameMode);
 	const panel = tab === 'nexus' ? 'world' : 'resources';
-	const gated = tab !== 'nexus' && tab !== 'heart' && ((checkInRequired || mode === 'hard' || mode === 'hard-plus') && !checkedIn || checkOutRequired && !checkedOut);
+	const surveyGateAvailable = milestone >= 0.5;
+	const gated = surveyGateAvailable && tab !== 'nexus' && tab !== 'heart' && ((checkInRequired || mode === 'hard' || mode === 'hard-plus') && !checkedIn || checkOutRequired && !checkedOut);
 	return (
-		<DragonAppScreen title="Dragon's Lair" panel={panel} effects>
+		<DragonAppScreen title="Dragon's Lair" panel={panel}>
 			<TabStrip tabs={LAIR_TABS} value={tab} onChange={setTab} milestone={milestone} />
 			{milestone < requiredMilestone ?
 				<EmptyState icon="🔒" title="Lair chamber sealed" description={`Unlocks at Milestone ${milestoneLabel(requiredMilestone)}.`} />
@@ -99,21 +105,15 @@ function Nexus() {
 	const [clickFeedback, setClickFeedback] = useState<{ id: number; x: number; y: number; energy: string; fury: string }>();
 	const animated = useAnimatedStyle(() => ({ transform: [{ scale: tap.value }] }));
 	const source = stageSprites[dragon.stage as keyof typeof stageSprites] ?? require('@/assets/images/dragon-stages/dragon.png');
-	if (!worldDragon.dragonSpawned) {
-		return (
-			<Card accent="gold">
-				<PageIntro eyebrow="CLASSIFIED NEXUS" title="Spawn your dragon" description="The rest of Dragon Focus remains sealed until the government Nexus recognizes your dragon." />
-				<ActionButton label="Spawn Dragon" onPress={() => worldDragon.spawnDragon()} />
-			</Card>
-		);
-	}
 	return (
 		<>
 			<PageIntro eyebrow="The core" title="The Nexus" description="Your dragon is both companion and engine. Tap it to spark Energy and a little Fury." />
 			<Card style={styles.energyHero}>
 				<Text style={styles.metricLabel}>Current Energy</Text>
 				<Text style={styles.energy}>{formatDecimal(resources.energy, 2, heroFormat)}</Text>
-				{progression.heartTicksPerSecond <= 0 ?
+				{currentMilestone < 0.25 ?
+					<Text style={uiStyles.muted}>Tap the dragon to build the first government Energy signal.</Text>
+				: progression.heartTicksPerSecond <= 0 ?
 					<View style={styles.heartWarning}>
 						<Text style={styles.heartWarningTitle}>Crimson Heart inactive</Text>
 						<Text style={styles.heartWarningText}>Heart is at 0% — passive Energy generation is paused.</Text>
@@ -130,7 +130,11 @@ function Nexus() {
 					</View>}
 			</Card>
 			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Gather Energy from the dragon"
+				accessibilityState={{ disabled: worldDragon.clickRest.dragon.ticksRemaining > 0 }}
 				style={styles.dragonStage}
+				disabled={worldDragon.clickRest.dragon.ticksRemaining > 0}
 				onLayout={event => setStageWidth(event.nativeEvent.layout.width)}
 				onPress={event => {
 					// Reanimated shared values are intentionally mutable animation handles.
@@ -140,7 +144,7 @@ function Nexus() {
 					if (reward) {
 						const id = Date.now();
 						setClickFeedback({ id, x: event.nativeEvent.locationX, y: event.nativeEvent.locationY, energy: reward.energy, fury: reward.fury });
-						setTimeout(() => setClickFeedback(current => (current?.id === id ? undefined : current)), 900);
+						setTimeout(() => setClickFeedback(current => (current?.id === id ? undefined : current)), 16);
 					}
 				}}>
 				<View style={[styles.dragonHalo, { backgroundColor: COSMETIC_GLOWS[cosmetic] }]} />
@@ -150,27 +154,30 @@ function Nexus() {
 					:	<Image source={source} resizeMode="contain" style={styles.dragon} />}
 				</Animated.View>
 				{clickFeedback ?
-					<Animated.Text key={clickFeedback.id} exiting={FadeOutUp.duration(700)} style={[styles.clickFeedback, { left: feedbackLeft(clickFeedback.x, 220, stageWidth), top: feedbackTop(clickFeedback.y) }]}>
-						+{formatDecimal(clickFeedback.energy)} Energy · +{formatDecimal(clickFeedback.fury, 3)} Fury
+					<Animated.Text key={clickFeedback.id} exiting={FadeOutUp.duration(900)} style={[styles.clickFeedback, { left: feedbackLeft(clickFeedback.x, 220, stageWidth), top: feedbackTop(clickFeedback.y) }]}>
+						+{formatDecimal(clickFeedback.energy)} Energy{currentMilestone >= 0.25 ? ` · +${formatDecimal(clickFeedback.fury, 3)} Fury` : ''}
 					</Animated.Text>
 				:	null}
 				<Text style={styles.dragonName}>{dragon.name}</Text>
 				<Text style={styles.dragonMeta}>
 					{dragon.stage.replaceAll('-', ' ')} · age {dragon.ageDays.toFixed(2)} days · {cosmetic} cosmetic
 				</Text>
+				<ClickRestOverlay label="Dragon" rest={worldDragon.clickRest.dragon} />
 			</Pressable>
 			<Card accent="gold">
 				<SectionTitle title={nextMilestone ? `Approaching Milestone ${milestoneLabel(nextMilestone.id)}` : 'All known milestones reached'} detail={nextMilestone ? `${formatDecimal(totalAllTimeEnergy)} / ${formatDecimal(nextMilestone.energy)} lifetime Energy` : 'The horizon is yours.'} />
-				{nextMilestone ?
-					<ProgressBar value={totalAllTimeEnergy.div(nextMilestone.energy).times(100).toNumber()} label={`Milestone ${milestoneLabel(currentMilestone)} Complete`} color={colors.gold} />
-				:	null}
+				{nextMilestone ? <ProgressBar value={totalAllTimeEnergy.div(nextMilestone.energy).times(100).toNumber()} label={`Progress to Milestone ${milestoneLabel(nextMilestone.id)}`} color={colors.gold} /> : null}
 			</Card>
-			<Card accent="gold">
-				<SectionTitle title="Dragon Clickers" detail="Small permanent upgrades for the very start of the game." />
-				<Text style={uiStyles.muted}>Dragon clickers start at level 0. A base click gives 1 Energy and +0.1 Fury; nine Less Angry Clicks upgrades reduce Fury to the 0.01 minimum. Clicker upgrades persist through Armageddons and Transcensions.</Text>
-				<Text style={uiStyles.muted}>Buy one level of the last visible clicker to reveal the next at no unlock cost. Maxed clickers disappear forever.</Text>
-			</Card>
-			<ClickerList items={DRAGON_CLICKERS} />
+			{currentMilestone >= 0.25 ?
+				<>
+					<Card accent="gold">
+						<SectionTitle title="Dragon Clickers" detail="Small permanent upgrades for the very start of the game." />
+						<Text style={uiStyles.muted}>Dragon clickers start at level 0. A base click gives 1 Energy and +0.1 Fury; nine Less Angry Clicks upgrades reduce Fury to the 0.01 minimum. Clicker upgrades persist through Armageddons and Transcensions.</Text>
+						<Text style={uiStyles.muted}>Buy one level of the last visible clicker to reveal the next at no unlock cost. Finished upgrades remain visible as MAXXED.</Text>
+					</Card>
+					<ClickerList items={DRAGON_CLICKERS} />
+				</>
+			: null}
 			<Card>
 				<SectionTitle title="Missions" detail="The mission board is being prepared." />
 				<EmptyState icon="⌁" title="Coming in a future era" description="Missions will turn longer focus arcs into dragon-specific adventures." />
@@ -190,10 +197,7 @@ function Production() {
 	const [tab, setTab] = useState<ProductionTab>('producers');
 	const requiredMilestone = PRODUCTION_TABS.find(candidate => candidate.id === tab)?.unlockMilestone ?? 0;
 	const [quantity, setQuantity] = useState(1);
-	const items =
-		tab === 'producers' ? PRODUCERS
-		: tab === 'amplifiers' ? AMPLIFIERS
-		: GOAL_MULTIPLIERS;
+	const items = tab === 'producers' ? PRODUCERS : AMPLIFIERS;
 	return (
 		<>
 			<PageIntro eyebrow="Energy systems" title="Production" description="Build from the core outward. Every output follows production × amplification × goal multiplier × other effects." />
@@ -212,7 +216,9 @@ function Production() {
 					detail={tab === 'producers' ? `⚙ ${formatDecimal(productionPerSecond)} raw production/s · ${Object.values(levels).reduce((sum, level) => sum + level, 0)} total owned` : 'Section totals update live and include every currently active effect.'}
 				/>
 			</Card>
-			<>
+			{tab === 'amplifiers' ? <DarkEnergyBalance detail="Used by Amplifier Efficiency upgrades in the Energy Upgrades chamber." /> : null}
+			{tab === 'goals' ? <DarkEnergyBalance detail="Spend 10 Dark Energy per archetype to link its multiplier to total Amplifier output until Transcension." /> : null}
+			{tab === 'goals' ? <GoalMultiplierList /> : <>
 					<Card>
 						<SectionTitle title="Purchase amount" detail="Sell returns half of the Energy purchase cost where selling is allowed." />
 						<View style={uiStyles.wrap}>
@@ -223,9 +229,86 @@ function Production() {
 						</View>
 					</Card>
 					<ItemList items={items} quantity={quantity} />
-			</>
+			</>}
 			</>}
 		</>
+	);
+}
+
+const GOAL_ARCHETYPE_COPY: Record<GoalMultiplierArchetype, { name: string; categories: string }> = {
+	personal: { name: 'Personal', categories: 'Personal · Mental Health · Fun · Custom' },
+	scholar: { name: "Scholar's", categories: 'Intellectual · Educational' },
+	athlete: { name: "Athlete's", categories: 'Health · Fitness · Diet' },
+	entrepreneur: { name: "Entrepreneur's", categories: 'Financial · Career' },
+	fellowship: { name: "Fellowship's", categories: 'Family · Relationships · Community · Spiritual' },
+	balanced: { name: 'Balanced', categories: 'Minimum progress across all five normal archetypes' },
+};
+
+function GoalMultiplierList() {
+	const store = useProductionStore(useShallow(state => ({
+		xp: state.goalMultiplierStore.xp,
+		levels: state.goalMultiplierStore.levels,
+		completedGoals: state.goalMultiplierStore.completedGoals,
+		claimedShardLevels: state.goalMultiplierStore.claimedShardLevels,
+		upgradeLevels: state.goalMultiplierStore.upgradeLevels,
+		purchaseUpgrade: state.goalMultiplierStore.purchaseUpgrade,
+		claimLevelShard: state.goalMultiplierStore.claimLevelShard,
+		isUnlocked: state.goalMultiplierStore.isUnlocked,
+		forgeLevel: state.levels['chaos-forge-gilding'] ?? 0,
+		gildedArchetypes: state.forgingStore.gildedGoalArchetypes,
+		setGildedTargets: state.forgingStore.setGildedTargets,
+		getGildMultiplier: state.forgingStore.getGildMultiplier,
+	})));
+	const darkEnergy = useWorldStore(state => state.resourceStore.resources.darkEnergy);
+	const gildCapacity = store.forgeLevel >= 6 ? GOAL_MULTIPLIER_ARCHETYPES.length : Math.min(5, store.forgeLevel);
+	return (
+		<View style={styles.itemList}>
+			<Card accent="violet">
+				<SectionTitle title="Chaos's Forge" detail={store.forgeLevel > 0 ? `Level ${store.forgeLevel} · ${store.gildedArchetypes.length}/${gildCapacity} Gild slots selected` : 'Unlock the Forge to gild Level 2 archetypes. Upgrade costs are 10^(upgrade number) Plasma.'} />
+				<Text style={uiStyles.muted}>Each archetype earns a level every 250 XP. Tap a ready level reward for 5 Shards. Gilding improves Goal Power after that archetype reaches Level 2.</Text>
+			</Card>
+			{GOAL_MULTIPLIER_ARCHETYPES.map(archetype => {
+				const copy = GOAL_ARCHETYPE_COPY[archetype];
+				const xp = store.xp[archetype];
+				const level = store.levels[archetype];
+				const completedGoals = store.completedGoals[archetype];
+				const unlocked = store.isUnlocked(archetype);
+				const amplifierLinked = store.upgradeLevels[archetype] > 0;
+				const gilded = store.gildedArchetypes.includes(archetype);
+				const gildEffect = store.getGildMultiplier(archetype, 'goal');
+				const multiplier = goalMultiplierValue(xp, gildEffect);
+				const goalPower = Math.max(0, (multiplier - 1) * 100);
+				const levelRequirement = goalMultiplierXpRequirement(level);
+				const xpIntoLevel = xp % levelRequirement;
+				const rewardReady = store.claimedShardLevels[archetype] < level;
+				const gildSlotsFull = !gilded && store.gildedArchetypes.length >= gildCapacity;
+				return (
+					<Card key={archetype} accent={gilded ? 'violet' : unlocked ? 'gold' : undefined}>
+						<View style={styles.goalMultiplierHeader}>
+							<View style={styles.goalMultiplierLevel}>
+								<Text style={styles.itemLevel}>ARCHETYPE LEVEL</Text>
+								<Text style={styles.goalMultiplierLevelNumber}>{level}</Text>
+							</View>
+							<View style={styles.itemCopy}>
+								<Text style={styles.itemName}>{copy.name} Goal Multiplier</Text>
+								<Text style={uiStyles.muted}>{copy.categories}</Text>
+								<Text style={styles.metric}>✦ {formatDecimal(goalPower, 2)} Goal Power · ×{formatDecimal(multiplier, 3)}</Text>
+							</View>
+						</View>
+						<ProgressBar value={xpIntoLevel} max={levelRequirement} color={colors.gold} label={`${formatDecimal(xp, 0)} total XP · ${formatDecimal(xpIntoLevel, 0)} / ${levelRequirement} to Level ${level + 1}`} />
+						{!unlocked ?
+							<Text style={uiStyles.muted}>Complete and harvest {Math.max(0, 5 - completedGoals)} more {copy.name.toLowerCase()} goal${5 - completedGoals === 1 ? '' : 's'} to unlock this archetype. Progress: {completedGoals}/5.</Text>
+						: <Text style={styles.maxedText}>ARCHETYPE UNLOCKED</Text>}
+						<View style={uiStyles.wrap}>
+							{rewardReady ? <ActionButton compact tone="secondary" label={`Claim Level ${store.claimedShardLevels[archetype] + 1} · 5 Shards`} onPress={() => store.claimLevelShard(archetype)} /> : null}
+							{unlocked && !amplifierLinked ? <LairPurchaseButton compact label="Link Amplifiers · 10 DE" disabled={darkEnergy.lt(10)} missing={darkEnergy.lt(10) ? [`Need ${formatDecimal(decimal(10).minus(darkEnergy))} more Dark Energy.`] : []} onPress={() => store.purchaseUpgrade(archetype)} /> : null}
+							{unlocked && amplifierLinked ? <Text style={styles.maxedText}>AMPLIFIER LINKED</Text> : null}
+							{store.forgeLevel > 0 && unlocked ? <ActionButton compact tone={gilded ? 'secondary' : 'quiet'} label={gilded ? 'Remove Gild' : level < 2 ? 'Gild · Level 2 Required' : gildSlotsFull ? 'Gild Slots Full' : 'Gild Archetype'} disabled={!gilded && (level < 2 || gildSlotsFull)} onPress={() => store.setGildedTargets('goal', gilded ? store.gildedArchetypes.filter(item => item !== archetype) : [...store.gildedArchetypes, archetype])} /> : null}
+						</View>
+					</Card>
+				);
+			})}
+		</View>
 	);
 }
 
@@ -237,7 +320,10 @@ function ItemList({ items, quantity = 1, revealSequentially = false }: { items: 
 	const store = useProductionStore(
 		useShallow(state => ({
 			levels: state.levels,
+			unlockState: state.unlockState,
+			effects: state.effects,
 			producerStore: state.producerStore,
+			getItem: state.getItem,
 			getCost: state.getCost,
 			getCosts: state.getCosts,
 			canPurchase: state.canPurchase,
@@ -247,6 +333,7 @@ function ItemList({ items, quantity = 1, revealSequentially = false }: { items: 
 		})),
 	);
 	const resources = useWorldStore(state => state.resourceStore.resources);
+	const totalAllTime = useWorldStore(state => state.resourceStore.totalAllTime);
 	const firstLockedIndex = items.findIndex(item => !store.isItemUnlocked(item.id));
 	const visibleItems = revealSequentially
 		? items.filter((_, index) => index === 0 || (store.levels[items[index - 1]!.id] ?? 0) > 0)
@@ -270,11 +357,33 @@ function ItemList({ items, quantity = 1, revealSequentially = false }: { items: 
 					item.kind === 'producer' && totalProducerRate.gt(0) ? itemRate.div(totalProducerRate).times(100)
 					: item.kind === 'amplifier' && totalAmplification.gt(0) ? itemAmplification.div(totalAmplification).times(100)
 					: decimal(0);
+				const blueprintRequirements: UnlockRequirement[] = [
+					...(item.kind === 'amplifier' && index > 0 ? [{ metric: 'owned-item' as const, itemId: items[index - 1]!.id, amount: AMPLIFIER_UNLOCK_LEVEL }] : []),
+					...(item.unlocks ?? []),
+				];
 				return (
 					<Animated.View key={item.id} entering={FadeInDown.delay(Math.min(index * 25, 250))}>
 						{!unlocked ?
-							<Card accent="violet">
-								<EmptyState icon="🔒" title="Classified blueprint" description={`Unlocked by ${item.unlocks?.map(requirement => (requirement.metric === 'milestone' ? `Milestone ${milestoneLabel(requirement.amount ?? 0)}` : requirement.metric.replaceAll('-', ' '))).join(' and ') || 'the previous discovery'}.`} />
+							<Card accent="violet" style={styles.blueprintCard}>
+								<View style={styles.blueprintHeader}>
+									<Text style={styles.blueprintIcon}>🔒</Text>
+									<View style={styles.blueprintCopy}>
+										<Text style={styles.itemLevel}>ITEM LEVEL 0 · CLASSIFIED BLUEPRINT</Text>
+										<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.itemName}>{item.name}</Text>
+									</View>
+								</View>
+								{blueprintRequirements.length ? blueprintRequirements.map((requirement, requirementIndex) => {
+									const requirementProgress = blueprintRequirementProgress(requirement, store, resources, totalAllTime);
+									return (
+										<View key={`${item.id}-requirement-${requirementIndex}`} style={styles.blueprintRequirement}>
+											<View style={styles.blueprintRequirementRow}>
+												<Text style={styles.blueprintRequirementLabel}>{requirementProgress.label}</Text>
+												<Text style={styles.blueprintRequirementProgress}>{requirementProgress.value}</Text>
+											</View>
+											<ProgressBar value={requirementProgress.progress} max={100} color={requirementProgress.progress >= 100 ? colors.green : colors.violet} />
+										</View>
+									);
+								}) : <Text style={styles.blueprintRequirementLabel}>Unlock the preceding discovery.</Text>}
 							</Card>
 						:	<Card style={styles.itemCard}>
 								<View style={[styles.itemRow, reverseItemLayout && styles.itemRowReversed]}>
@@ -291,7 +400,7 @@ function ItemList({ items, quantity = 1, revealSequentially = false }: { items: 
 									</View>
 									<View style={styles.itemCopy}>
 										<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.itemLevel}>
-											LEVEL {formatDecimal(level, 0)}
+											LEVEL {formatDecimal(level, 0)}{item.maxLevel === undefined ? '' : ` / ${formatDecimal(item.maxLevel, 0)} LEVELS`}
 										</Text>
 										<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.itemName}>
 											{progress && item.kind === 'producer' ? getProducerDisplayName(item as (typeof PRODUCERS)[number], progress) : item.name}
@@ -314,13 +423,13 @@ function ItemList({ items, quantity = 1, revealSequentially = false }: { items: 
 										</Text>
 									</View>
 									<View style={styles.itemActions}>
-										<LairPurchaseButton
+										{maxed ? <Text style={styles.maxedText}>MAXXED</Text> : <LairPurchaseButton
 											compact
-											label={maxed ? 'Maxed' : item.maxLevel === 1 ? 'Unlock' : quantity === 999 ? `Buy MAX (${formatDecimal(count, 0)})` : `Buy ${formatDecimal(count, 0)}`}
-											disabled={maxed || !count || !store.canPurchase(item.id) || missing.length > 0}
+											label={item.maxLevel === 1 ? 'Unlock' : quantity === 999 ? `Buy MAX (${formatDecimal(count, 0)})` : `Buy ${formatDecimal(count, 0)}`}
+											disabled={!count || !store.canPurchase(item.id) || missing.length > 0}
 											missing={missing}
 											onPress={() => store.purchase(item.id, count)}
-										/>
+										/>}
 										{item.kind === 'producer' || item.kind === 'amplifier' ?
 											<ActionButton compact tone="quiet" label="Sell 1" disabled={!level} onPress={() => store.sell(item.id, 1)} />
 										:	null}
@@ -334,6 +443,50 @@ function ItemList({ items, quantity = 1, revealSequentially = false }: { items: 
 		</View>
 	);
 }
+
+type BlueprintProgressStore = Pick<ProductionStoreState, 'levels' | 'unlockState' | 'effects' | 'getItem'>;
+
+const blueprintRequirementProgress = (requirement: UnlockRequirement, store: BlueprintProgressStore, resources: ResourceAmounts, totalAllTime: ResourceAmounts) => {
+	const target = Math.max(1, requirement.amount ?? 1);
+	const progress = (current: number | string, required = target) => decimal(current).div(Math.max(1, required)).max(0).min(1).times(100).toNumber();
+	const count = (label: string, current: number | string, required = target) => ({ label, value: `${formatDecimal(current)} / ${formatDecimal(required)}`, progress: progress(current, required) });
+	const complete = (label: string, done: boolean) => ({ label, value: done ? 'Complete' : '0 / 1', progress: done ? 100 : 0 });
+	const resource = requirement.resource ?? 'energy';
+	const resourceName = resource.replace(/([A-Z])/g, ' $1').replace(/^./, character => character.toUpperCase());
+	switch (requirement.metric) {
+		case 'milestone':
+			return { label: `Reach Milestone ${milestoneLabel(requirement.amount ?? 0)}`, value: `${milestoneLabel(store.unlockState.milestone)} / ${milestoneLabel(requirement.amount ?? 0)}`, progress: progress(store.unlockState.milestone, requirement.amount ?? 0) };
+		case 'check-in': return complete("Complete today's Check-In survey", store.unlockState.checkInCompleted);
+		case 'check-out': return complete("Complete today's Check-Out survey", store.unlockState.checkOutCompleted);
+		case 'pomodoro-minutes': return count('Total Pomodoro focus minutes', store.unlockState.pomodoroMinutes);
+		case 'pomodoro-sessions': return count('Completed Pomodoro sessions', store.unlockState.pomodoroSessions);
+		case 'completed-goals': return count('Completed goals', store.unlockState.completedGoals);
+		case 'completed-habits': return count('Completed habits', store.unlockState.completedHabits);
+		case 'completed-tasks': return count('Completed tasks', store.unlockState.completedTasks);
+		case 'population': return count('Current Population', resources.population.toString());
+		case 'dragon-age': return count('Dragon age in days', store.unlockState.dragonAge);
+		case 'dark-energy-earned': return count('Dark Energy earned', store.unlockState.darkEnergyEarned);
+		case 'plasma-earned': return count('Plasma earned', store.unlockState.plasmaEarned);
+		case 'resource-earned': return count(`${resourceName} earned all-time`, totalAllTime[resource].toString());
+		case 'resource-amount': return count(`Current ${resourceName}`, resources[resource].toString());
+		case 'owned-producer':
+		case 'owned-item': {
+			const itemId = requirement.itemId ?? '';
+			return count(`${store.getItem(itemId)?.name ?? itemId.replaceAll('-', ' ')} item level`, store.levels[itemId] ?? 0);
+		}
+		case 'armageddons': return count('Armageddons committed', store.unlockState.armageddons);
+		case 'transcensions': return count('Transcensions committed', store.unlockState.transcensions);
+		case 'pantheon-members': {
+			const members = Object.entries(store.levels).filter(([id, level]) => level > 0 && ['deity', 'titan'].includes(store.getItem(id)?.kind ?? '')).length;
+			return count('Summoned Pantheon members', members);
+		}
+		case 'titan-equivalents': {
+			const equivalents = Object.entries(store.levels).reduce((total, [id, level]) => total + (store.getItem(id)?.kind === 'titan' ? level : 0), 0);
+			return count('Titan-equivalent levels', equivalents);
+		}
+		case 'effect': return complete(`Activate ${(requirement.effectId ?? 'required effect').replaceAll('-', ' ')}`, Boolean(requirement.effectId && store.effects[requirement.effectId]));
+	}
+};
 
 const maximumAffordable = (store: Pick<ProductionStoreState, 'getCosts'>, itemId: string, resources: ResourceAmounts) => {
 	const canAfford = (quantity: number) => Object.entries(store.getCosts(itemId, quantity)).every(([resource, cost]) => resources[resource as keyof ResourceAmounts].gte(cost!));
@@ -359,7 +512,7 @@ function CrimsonHeart() {
 		getMaximumCharge: state.crimsonHeart.getMaximumCharge,
 		getTargetCharge: state.crimsonHeart.getTargetCharge,
 	})));
-	const upgrades = ENERGY_UPGRADES.filter(item => item.id.includes('crimson'));
+	const upgrades = CRIMSON_HEART_UPGRADES;
 	const pulse = useSharedValue(1);
 	const [stageWidth, setStageWidth] = useState(0);
 	const [quote, setQuote] = useState<{ id: number; x: number; y: number; text: string }>();
@@ -554,20 +707,28 @@ const modeCopyLabel = (mode: SpellConversionMode) => ({
 
 function Upgrades() {
 	const [tab, setTab] = useState<UpgradeTab>('amplifier');
-	const split = Math.ceil(PRODUCER_UPGRADES.length / 2);
+	const milestone = milestoneForEnergy(useWorldStore(state => state.resourceStore.totalAllTime.energy));
+	const requiredMilestone = UPGRADE_TABS.find(candidate => candidate.id === tab)?.unlockMilestone ?? 0;
+	const producerTypeOne = [...PRODUCER_UPGRADES.filter(item => item.id.endsWith('-core-upgrade')), ...PRODUCER_GLOBAL_UPGRADES];
+	const producerTypeTwo = PRODUCER_UPGRADES.filter(item => item.id.endsWith('-special-upgrade'));
 	const items =
-		tab === 'amplifier' ? ENERGY_UPGRADES.filter(item => !item.id.startsWith('crimson-'))
-		: tab === 'producer1' ? PRODUCER_UPGRADES.slice(0, split)
-		: tab === 'producer2' ? PRODUCER_UPGRADES.slice(split)
+		tab === 'amplifier' ? AMPLIFIER_EFFICIENCY_UPGRADES
+		: tab === 'producer1' ? producerTypeOne
+		: tab === 'producer2' ? producerTypeTwo
 		: tab === 'boosts' ? APOCALYPSE_BOOST_UPGRADES
 		: [];
 	return (
 		<>
 			<PageIntro eyebrow="Dark energy" title="Upgrades" description="Permanent unlocks, activations, efficiencies, and the machine-to-dragon evolution path." />
-			<TabStrip tabs={UPGRADE_TABS} value={tab} onChange={setTab} />
-			{tab === 'evolution' ?
+			<TabStrip tabs={UPGRADE_TABS} value={tab} onChange={setTab} milestone={milestone} />
+			{milestone < requiredMilestone ?
+				<EmptyState icon="🔒" title="Upgrade chamber sealed" description={`Unlocks at Milestone ${milestoneLabel(requiredMilestone)}.`} />
+			: tab === 'evolution' ?
 				<Evolution />
-			:	<ItemList items={items} />}
+			:	<>
+					{tab === 'amplifier' ? <DarkEnergyBalance detail="Available now for Amplifier Efficiency and its related permanent unlocks." /> : null}
+					<ItemList items={items} />
+				</>}
 		</>
 	);
 }
@@ -644,31 +805,58 @@ function Armageddon() {
 		useShallow(state => ({
 			armageddonCount: state.armageddonCount,
 			commitArmageddon: state.commitArmageddon,
+			completedApocalypses: state.completedApocalypses,
 			apocalypseLevels: state.apocalypseLevels,
 			selectedApocalypse: state.selectedApocalypse,
+			unlockApocalypse: state.unlockApocalypse,
 			upgradeApocalypse: state.upgradeApocalypse,
 			setSelectedApocalypse: state.setSelectedApocalypse,
 		})),
 	);
-	const resources = useWorldStore(state => state.resourceStore.resources);
+	const accumulatedEnergy = useWorldStore(state => state.resourceStore.totalThisArmageddon.energy);
+	const darkEnergyEarned = useWorldStore(state => state.resourceStore.totalAllTime.darkEnergy);
+	const plasma = useWorldStore(state => state.resourceStore.resources.plasma);
+	const goalLevels = useProductionStore(state => state.goalMultiplierStore.levels);
+	const darkEnergyRequired = WORLD_CONSTANTS.armageddonDarkEnergyBase;
+	const canCommit = darkEnergyEarned.gte(darkEnergyRequired);
+	const apocalypseNames: Record<keyof typeof prestige.apocalypseLevels, string> = {
+		sacrifice: 'Great Sacrifice',
+		shadow: 'Shadow Apocalypse',
+		freeze: 'Freeze Apocalypse',
+		wrath: 'Wrath Apocalypse',
+		reincarnation: 'Reincarnation Apocalypse',
+		invasion: 'Invasion Apocalypse',
+		roulette: 'Roulette Apocalypse',
+	};
+	const apocalypseTypes = (['sacrifice', 'freeze', 'wrath', 'reincarnation', 'invasion', 'roulette'] as const).filter(type =>
+		prestige.completedApocalypses.includes(type) || type === 'sacrifice' || (APOCALYPSE_GOAL_REQUIREMENTS[type] ?? []).every(archetype => goalLevels[archetype] >= 1),
+	);
+	const unlockCost = apocalypseUnlockCost(prestige.completedApocalypses);
 	return (
 		<>
 			<Card accent="crimson">
-				<SectionTitle title="Commit Armageddon" detail={`Run ${prestige.armageddonCount + 1} · converts accumulated Energy into Plasma`} />
-				<Text style={styles.prestigeNumber}>{formatDecimal(resources.energy)} Energy</Text>
-				<ActionButton tone="danger" label="Commit Armageddon" onPress={prestige.commitArmageddon} />
+				<SectionTitle title="Commit Armageddon" detail={`Run ${prestige.armageddonCount + 1} · Great Sacrifice starts at Level 1 and converts Energy accumulated during this Armageddon into Plasma.`} />
+				<Text style={styles.prestigeNumber}>{formatDecimal(accumulatedEnergy)} accumulated Energy</Text>
+				<ProgressBar value={darkEnergyEarned.min(darkEnergyRequired).toNumber()} max={darkEnergyRequired} color={colors.crimsonBright} label={`${formatDecimal(darkEnergyEarned)} / ${formatDecimal(darkEnergyRequired)} Dark Energy earned all-time`} />
+				<ActionButton tone="danger" disabled={!canCommit} label={canCommit ? 'Commit Armageddon' : `Earn ${formatDecimal(decimal(darkEnergyRequired).minus(darkEnergyEarned))} more Dark Energy`} onPress={prestige.commitArmageddon} />
 			</Card>
 			<Card>
-				<SectionTitle title="Apocalypse types" detail="Upgrade independently; combine their earned effects." />
-				{(Object.keys(prestige.apocalypseLevels) as (keyof typeof prestige.apocalypseLevels)[]).map(type => (
+				<SectionTitle title="Apocalypse types" detail="A special Apocalypse remains classified until both of its required archetypes reach Goal Level 1." />
+				{apocalypseTypes.map(type => {
+					const unlocked = prestige.completedApocalypses.includes(type);
+					const requirements = APOCALYPSE_GOAL_REQUIREMENTS[type] ?? [];
+					return (
 					<View key={type} style={styles.ability}>
-						<View>
-							<Text style={styles.itemName}>{type}</Text>
-							<Text style={uiStyles.muted}>Level {prestige.apocalypseLevels[type]}</Text>
+						<View style={styles.itemCopy}>
+							<Text style={styles.itemName}>{apocalypseNames[type]}</Text>
+							<Text style={uiStyles.muted}>Level {prestige.apocalypseLevels[type]}{type === 'sacrifice' && prestige.apocalypseLevels[type] === 1 ? ' · Automatic base level' : ''}</Text>
+							{requirements.length ? <Text style={styles.metric}>{requirements.map(archetype => `${GOAL_ARCHETYPE_COPY[archetype].name} L${goalLevels[archetype]}`).join(' + ')}</Text> : null}
 						</View>
-						<ActionButton compact tone={prestige.selectedApocalypse === type ? 'primary' : 'quiet'} label={prestige.selectedApocalypse === type ? 'Upgrade' : 'Select'} onPress={() => (prestige.selectedApocalypse === type ? prestige.upgradeApocalypse(type) : prestige.setSelectedApocalypse(type))} />
+						{!unlocked ?
+							<LairPurchaseButton compact label={`Unlock · ${formatDecimal(unlockCost)} Plasma`} disabled={plasma.lt(unlockCost)} missing={plasma.lt(unlockCost) ? [`Need ${formatDecimal(unlockCost.minus(plasma))} more Plasma.`] : []} onPress={() => prestige.unlockApocalypse(type)} />
+						: <ActionButton compact tone={prestige.selectedApocalypse === type ? 'primary' : 'quiet'} label={prestige.selectedApocalypse === type ? 'Upgrade' : 'Select'} onPress={() => (prestige.selectedApocalypse === type ? prestige.upgradeApocalypse(type) : prestige.setSelectedApocalypse(type))} />}
 					</View>
-				))}
+				);})}
 			</Card>
 			<MonumentBars />
 		</>
@@ -693,16 +881,40 @@ function MonumentBars() {
 }
 function Transcension() {
 	const prestige = usePrestigeStore(useShallow(state => ({ transcensionCount: state.transcensionCount, commitTranscension: state.commitTranscension })));
-	const resources = useWorldStore(state => state.resourceStore.resources);
+	const resourceState = useWorldStore(useShallow(state => ({ resources: state.resourceStore.resources, totalThisTranscension: state.resourceStore.totalThisTranscension })));
+	const darkEnergyRequired = WORLD_CONSTANTS.transcensionDarkEnergyBase;
+	const darkEnergyEarned = resourceState.totalThisTranscension.darkEnergy;
+	const canTranscend = darkEnergyEarned.gte(darkEnergyRequired);
 	return (
 		<>
 			<Card accent="violet">
 				<SectionTitle title="Transcension" detail={`Transcensions ${prestige.transcensionCount} · reset deep progression for permanent currencies.`} />
-				<Text style={styles.prestigeNumber}>{formatDecimal(resources.plasma)} Plasma</Text>
-				<ActionButton tone="danger" label="Transcend" onPress={prestige.commitTranscension} />
+				<View style={styles.heartStatsRow}>
+					<Stat label="Current Plasma" value={formatDecimal(resourceState.resources.plasma)} tone="gold" />
+					<Stat label="Current Dark Energy" value={formatDecimal(resourceState.resources.darkEnergy)} tone="blue" />
+					<Stat label="Potential Dark Plasma" value={formatDecimal(darkEnergyEarned)} tone="crimson" />
+				</View>
+				<ProgressBar value={darkEnergyEarned.min(darkEnergyRequired).toNumber()} max={darkEnergyRequired} color={colors.violet} label={`${formatDecimal(darkEnergyEarned)} / ${formatDecimal(darkEnergyRequired)} Dark Energy earned this Transcension`} />
+				<ActionButton tone="danger" disabled={!canTranscend} label={canTranscend ? 'Transcend' : `Earn ${formatDecimal(decimal(darkEnergyRequired).minus(darkEnergyEarned))} more Dark Energy`} onPress={prestige.commitTranscension} />
 			</Card>
 			<MonumentBars />
 		</>
+	);
+}
+
+function DarkEnergyBalance({ detail }: { detail: string }) {
+	const darkEnergy = useWorldStore(state => state.resourceStore.resources.darkEnergy);
+	return (
+		<Card accent="violet" style={styles.resourceBalanceCard}>
+			<View style={styles.resourceBalanceRow}>
+				<Text style={styles.resourceBalanceIcon}>◈</Text>
+				<View style={styles.resourceBalanceCopy}>
+					<Text style={styles.resourceBalanceLabel}>Available Dark Energy</Text>
+					<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.resourceBalanceAmount}>{formatDecimal(darkEnergy)}</Text>
+				</View>
+			</View>
+			<Text style={uiStyles.muted}>{detail}</Text>
+		</Card>
 	);
 }
 

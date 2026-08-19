@@ -1,4 +1,5 @@
 import { WORLD_CONSTANTS } from '@/constants/world.constants';
+import { earthClickPopulationGain } from '@/data/calculations/formula-game';
 import { DRAGON_QUOTES } from '@/data/statistics-data/dragon-quotes';
 import type { DragonFuryBand } from '@/types/world.types';
 import { decimal } from '@/utils/decimal';
@@ -14,6 +15,7 @@ export interface DragonStoreState {
 	lastDragonQuote?: string;
 	bestDragonAge: number;
 	reviveGraceUntil?: string;
+	clickRest: Record<ClickTarget, ClickRestState>;
 	spawnDragon: (name?: string) => boolean;
 	dismissNexusIntro: () => void;
 	renameDragon: (name: string) => boolean;
@@ -23,11 +25,19 @@ export interface DragonStoreState {
 	reviveDragon: () => boolean;
 	clickDragon: () => DragonClickReward | undefined;
 	clickWorld: () => string | undefined;
+	advanceClickRest: (ticks: number) => void;
 	setAngerShields: (amount: number) => void;
 	recordDragonAge: (ageDays: number) => void;
 	startReviveGrace: (seconds: number) => void;
 	clearReviveGrace: () => void;
 	reset: () => void;
+}
+
+export type ClickTarget = 'dragon' | 'world';
+
+export interface ClickRestState {
+	clicksRemaining: number;
+	ticksRemaining: number;
 }
 
 export interface DragonClickReward {
@@ -36,6 +46,13 @@ export interface DragonClickReward {
 	quote?: string;
 }
 
+const nextClickAllowance = () => {
+	const { minimumClicks, maximumClicks } = WORLD_CONSTANTS.clickRest;
+	return Math.floor(Math.random() * (maximumClicks - minimumClicks + 1)) + minimumClicks;
+};
+
+const freshClickRest = (): ClickRestState => ({ clicksRemaining: nextClickAllowance(), ticksRemaining: 0 });
+
 const initialState = () => ({
 	dragonSpawned: false,
 	nexusIntroStep: 0,
@@ -43,11 +60,31 @@ const initialState = () => ({
 	lastDragonQuote: undefined as string | undefined,
 	bestDragonAge: 0,
 	reviveGraceUntil: undefined as string | undefined,
+	clickRest: {
+		dragon: freshClickRest(),
+		world: freshClickRest(),
+	},
 });
 
 /** Canonical owner for dragon lifecycle, Fury controls, shields, and age state. */
 export const createDragonSlice: WorldSlice<'dragonStore'> = (set, get) => {
 	const { setSlice, getSlice, getRoot } = scopeNestedSlice<WorldStoreState, 'dragonStore', DragonStoreState>('dragonStore', set, get);
+	const consumeClick = (target: ClickTarget) => {
+		const state = getSlice();
+		const rest = state.clickRest[target];
+		if (rest.ticksRemaining > 0) return false;
+		const clicksRemaining = Math.max(0, rest.clicksRemaining - 1);
+		setSlice({
+			clickRest: {
+				...state.clickRest,
+				[target]: {
+					clicksRemaining,
+					ticksRemaining: clicksRemaining === 0 ? WORLD_CONSTANTS.clickRest.recoveryTicks : 0,
+				},
+			},
+		});
+		return true;
+	};
 
 	return {
 		dragonStore: {
@@ -105,6 +142,7 @@ export const createDragonSlice: WorldSlice<'dragonStore'> = (set, get) => {
 		const resources = getRoot().resourceStore;
 		const levels = useProductionStore.getState().levels;
 		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return undefined;
+		if (!consumeClick('dragon')) return undefined;
 		const base = decimal(1 + (levels['bigger-clicks'] ?? 0)).times(decimal(2).pow(levels['double-clicks'] ?? 0));
 		const fury = decimal(Math.max(0.01, 0.1 - (levels['less-angry-clicks'] ?? 0) * 0.01));
 		resources.addResources({ energy: base, fury });
@@ -117,9 +155,10 @@ export const createDragonSlice: WorldSlice<'dragonStore'> = (set, get) => {
 	clickWorld: () => {
 		const resources = getRoot().resourceStore;
 		if (!getSlice().dragonSpawned || !resources.dragon.isAlive) return undefined;
+		if (!consumeClick('world')) return undefined;
 		const levels = useProductionStore.getState().levels;
 		const startingPopulation = resources.resources.population;
-		const baseGain = decimal(10).pow(levels['gaias-gift'] ?? 0);
+		const baseGain = earthClickPopulationGain(levels['gaias-gift'] ?? 0);
 		const populationAfterBase = startingPopulation.plus(baseGain);
 		const level = levels['un-worldly-clicks'] ?? 0;
 		const growthTicks = Math.min(1, level * 0.2);
@@ -130,6 +169,17 @@ export const createDragonSlice: WorldSlice<'dragonStore'> = (set, get) => {
 		const gain = finalPopulation.minus(startingPopulation);
 		resources.addPopulation(gain);
 		return gain.toString();
+	},
+	advanceClickRest: ticks => {
+		if (!Number.isFinite(ticks) || ticks <= 0) return;
+		const current = getSlice().clickRest;
+		if (current.dragon.ticksRemaining <= 0 && current.world.ticksRemaining <= 0) return;
+		const advance = (rest: ClickRestState): ClickRestState => {
+			if (rest.ticksRemaining <= 0) return rest;
+			const ticksRemaining = Math.max(0, rest.ticksRemaining - ticks);
+			return ticksRemaining > 0 ? { ...rest, ticksRemaining } : freshClickRest();
+		};
+		setSlice({ clickRest: { dragon: advance(current.dragon), world: advance(current.world) } });
 	},
 	setAngerShields: amount => setSlice({ angerShields: Math.max(0, amount) }),
 	recordDragonAge: ageDays => {

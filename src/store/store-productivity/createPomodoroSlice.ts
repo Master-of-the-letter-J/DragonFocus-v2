@@ -1,7 +1,6 @@
 import { decimal } from '@/utils/decimal';
 import { POMODORO_BOOSTS } from '@/data/productivity-data/pomodoro-boosts';
 import { useProductionStore } from '../store-production/_useProductionStore';
-import { useProductionSpecialStore } from '../store-production-special/_useProductionSpecialStore';
 import { useWorldStore } from '../store-world/_useWorldStore';
 import { useStatsStore } from '../useStatsStore';
 import { scopeNestedSlice } from '../nested-slice';
@@ -81,12 +80,6 @@ const applySessionReward = (session: CompletedPomodoroSession) => {
 	useProductionStore.getState().updateUnlockState({ pomodoroMinutes: useProductionStore.getState().unlockState.pomodoroMinutes + session.seconds / 60 });
 };
 
-/** Starting a focus session immediately applies the currently unlocked Heart charge. */
-const fillCrimsonHeartForPomodoro = () => {
-	const heart = useProductionSpecialStore.getState().crimsonHeart;
-	heart.setCharge(heart.getTargetCharge('pomodoro'));
-};
-
 export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = (set, get) => {
 	const { setSlice, getSlice, getRoot } = scopeNestedSlice<import('./_useProductivityStore').ProductivityStoreState, 'pomodoro', PomodoroStoreState>('pomodoro', set, get);
 
@@ -97,13 +90,13 @@ export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = (set, get) => 
 				if (!Number.isFinite(minutes) || minutes <= 0 || getSlice().status !== 'idle') return false;
 				const seconds = Math.round(minutes * 60);
 				setSlice({ status: 'countdown-active', isPaused: false, secondsRemaining: seconds, elapsedSeconds: 0, activeDurationSeconds: seconds });
-				fillCrimsonHeartForPomodoro();
+				useWorldStore.getState().optionsStore.setActivity('pomodoro');
 				return true;
 			},
 			startCountUp: () => {
 				if (getSlice().status !== 'idle') return false;
 				setSlice({ status: 'count-up', isPaused: false, secondsRemaining: 0, elapsedSeconds: 0 });
-				fillCrimsonHeartForPomodoro();
+				useWorldStore.getState().optionsStore.setActivity('pomodoro');
 				return true;
 			},
 			pause: () => setSlice(state => (state.status === 'idle' ? state : { isPaused: true })),
@@ -126,6 +119,7 @@ export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = (set, get) => 
 				const isFocusSession = state.status === 'countdown-active' || state.status === 'count-up' || state.status === 'crimson-heart';
 				const session = rewardForSession(state.elapsedSeconds, completed && isFocusSession);
 				applySessionReward(session);
+				useWorldStore.getState().optionsStore.setActivity('idle');
 				setSlice(current => ({
 					...initialState(),
 					pinnedGoalIds: current.pinnedGoalIds,
@@ -146,6 +140,7 @@ export const createPomodoroSlice: ProductivitySlice<'pomodoro'> = (set, get) => 
 				if (state.status !== 'idle') return false;
 				const seconds = kind === 'short' ? state.shortBreakSeconds : state.longBreakSeconds;
 				setSlice({ status: 'countdown-break', isPaused: false, secondsRemaining: seconds, elapsedSeconds: 0, activeDurationSeconds: seconds });
+				useWorldStore.getState().optionsStore.setActivity('pomodoro-break');
 				return true;
 			},
 			adjustTime: seconds =>

@@ -4,6 +4,13 @@ export const WORLD_CONSTANTS = {
 	initialPopulation: 8_000_000_000,
 	resourceTickSeconds: 1,
 	crimsonHeartRatePerSecond: 1,
+	crimsonHeartDischargeRatePerSecond: 0.25,
+	clickRest: {
+		minimumClicks: 100,
+		maximumClicks: 200,
+		recoveryTicks: 1_000,
+		minimumTicksPerSecond: 1,
+	},
 	armageddonDarkEnergyBase: 500,
 	transcensionDarkEnergyBase: 25_000,
 	titanomachyProductionAdditivePerAge: 0.02,

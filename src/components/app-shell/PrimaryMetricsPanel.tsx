@@ -1,5 +1,6 @@
 import { displayFuryStage } from '@/components/ui/fury-display';
 import { appFonts, dragonTheme } from '@/constants/dragon-theme';
+import { milestoneForEnergy } from '@/data/world-data/milestones';
 import { useProductionSpecialStore } from '@/store/store-production-special/_useProductionSpecialStore';
 import { useWorldStore } from '@/store/store-world/_useWorldStore';
 import { formatDecimal } from '@/utils/decimal';
@@ -19,6 +20,7 @@ export function PrimaryMetricsPanel() {
 		angerShields: state.dragonStore.angerShields,
 		getFuryBand: state.dragonStore.getFuryBand,
 	})));
+	const milestone = milestoneForEnergy(useWorldStore(state => state.resourceStore.totalAllTime.energy));
 	const heart = useProductionSpecialStore(useShallow(state => ({ charge: state.crimsonHeart.charge, getMaximumCharge: state.crimsonHeart.getMaximumCharge })));
 	const [selectedId, setSelectedId] = useState<string>();
 	const furyStage = displayFuryStage(getFuryBand(), angerShields);
@@ -26,8 +28,10 @@ export function PrimaryMetricsPanel() {
 	const maximumHeart = heart.getMaximumCharge();
 	const entries: readonly MetricEntry[] = [
 		{ id: 'shards', label: 'Shards', value: formatDecimal(shards), icon: '◆', color: colors.gold, description: 'Crimson Shards buy Black Market goods, selected permanent unlocks, and defenses such as Anger Shields.' },
-		{ id: 'heart', label: 'Heart Speed', value: `${formatDecimal(heartMultiplier, 3)}%`, icon: '♥', color: colors.crimsonBright, description: `The Heart is currently driving ${formatDecimal(heartMultiplier, 3)} ticks each real second. Its current maximum is ${maximumHeart.toFixed(1)}%. It affects Energy, Population, Special Generation, Chaos Energy, and Fury—not Harvests, conversions, the Incinerator, Shrines, or Spells.` },
-		{ id: 'fury', label: 'Dragon Fury', value: `${furyStage} · ${formatDecimal(fury)}`, icon: '🔥', color: '#FFB5A7', description: `The dragon is ${furyStage} at ${formatDecimal(fury)} / ${formatDecimal(furyThreshold)} Fury. Shields can keep the stage Calm; Angry and Critical Fury stop Population growth and cause losses.` },
+		...(milestone >= 0.25 ? [
+			{ id: 'heart', label: 'Heart Speed', value: `${formatDecimal(heartMultiplier, 3)}%`, icon: '♥', color: colors.crimsonBright, description: `The Heart is currently driving ${formatDecimal(heartMultiplier, 3)} ticks each real second. Its current maximum is ${maximumHeart.toFixed(1)}%. It affects Energy, Population, Special Generation, Chaos Energy, and Fury—not Harvests, conversions, the Incinerator, Shrines, or Spells.` },
+			{ id: 'fury', label: 'Dragon Fury', value: `${furyStage} · ${formatDecimal(fury)}`, icon: '🔥', color: '#FFB5A7', description: `The dragon is ${furyStage} at ${formatDecimal(fury)} / ${formatDecimal(furyThreshold)} Fury. Shields can keep the stage Calm; Angry and Critical Fury stop Population growth and cause losses.` },
+		] : []),
 	];
 	const selectedEntry = entries.find(entry => entry.id === selectedId);
 

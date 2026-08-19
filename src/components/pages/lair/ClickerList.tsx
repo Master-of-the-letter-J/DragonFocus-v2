@@ -22,15 +22,16 @@ export function ClickerList({ items }: { items: readonly ClickerDefinition[] }) 
 		})),
 	);
 	const resources = useWorldStore(state => state.resourceStore.resources);
-	const visibleItems = items.filter(item => store.isItemUnlocked(item.id) && (item.maxLevel === undefined || (store.levels[item.id] ?? 0) < item.maxLevel));
+	const visibleItems = items.filter(item => store.isItemUnlocked(item.id));
 	if (!visibleItems.length) return null;
 	return (
 		<View style={styles.itemList}>
 			{visibleItems.map((item, index) => {
 				const level = store.levels[item.id] ?? 0;
+				const maxed = item.maxLevel !== undefined && level >= item.maxLevel;
 				const costs = store.getCosts(item.id, 1);
-				const costText = formatPurchaseCosts(costs) || 'No cost';
-				const missing = missingPurchaseCosts(costs, resources);
+				const costText = maxed ? 'Maximum level reached' : formatPurchaseCosts(costs) || 'No cost';
+				const missing = maxed ? ['Maximum level reached.'] : missingPurchaseCosts(costs, resources);
 				return (
 					<Animated.View key={item.id} entering={FadeInDown.delay(Math.min(index * 25, 250))}>
 						<Card style={styles.itemCard}>
@@ -39,13 +40,13 @@ export function ClickerList({ items }: { items: readonly ClickerDefinition[] }) 
 									<Text style={styles.itemIconText}>✦</Text>
 								</View>
 								<View style={styles.itemCopy}>
-									<Text style={styles.itemLevel}>LEVEL {formatDecimal(level, 0)} / {item.maxLevel}</Text>
+									<Text style={styles.itemLevel}>LEVEL {formatDecimal(level, 0)} / {item.maxLevel} LEVELS</Text>
 									<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.itemName}>{item.name}</Text>
 									<Text numberOfLines={3} style={uiStyles.muted}>{item.description}</Text>
 									<Text numberOfLines={2} style={styles.cost}>{costText || 'No cost'}</Text>
 								</View>
 								<View style={styles.itemActions}>
-									<LairPurchaseButton compact label={item.maxLevel === 1 ? 'Unlock' : 'Buy 1'} disabled={!store.canPurchase(item.id) || missing.length > 0} missing={missing} onPress={() => store.purchase(item.id, 1)} />
+									{maxed ? <Text style={styles.maxedText}>MAXXED</Text> : <LairPurchaseButton compact label={item.maxLevel === 1 ? 'Unlock' : 'Buy 1'} disabled={!store.canPurchase(item.id) || missing.length > 0} missing={missing} onPress={() => store.purchase(item.id, 1)} />}
 								</View>
 							</View>
 						</Card>

@@ -55,7 +55,9 @@ export const createForgingSlice: ProductionSlice<'forgingStore'> = (set, get) =>
 				}
 
 				const capacity = forgeLevel >= 6 ? GOAL_MULTIPLIER_ARCHETYPES.length : Math.min(5, forgeLevel);
-				const allowed = [...new Set(ids)].filter((id): id is GoalMultiplierArchetype => GOAL_MULTIPLIER_ARCHETYPES.includes(id as GoalMultiplierArchetype)).slice(0, capacity);
+				const allowed = [...new Set(ids)].filter((id): id is GoalMultiplierArchetype =>
+					GOAL_MULTIPLIER_ARCHETYPES.includes(id as GoalMultiplierArchetype) && production.goalMultiplierStore.levels[id as GoalMultiplierArchetype] >= 2,
+				).slice(0, capacity);
 				setSlice({ gildedGoalArchetypes: allowed });
 			},
 			clearGilds: target => setSlice(target === 'amplifier' ? { gildedAmplifierIds: [] } : { gildedGoalArchetypes: [] }),

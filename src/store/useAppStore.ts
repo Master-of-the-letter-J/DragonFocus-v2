@@ -12,6 +12,7 @@ import { useOnlineProgressStore } from './store-online-progress/_useOnlineProgre
 import { useStatsStore } from './useStatsStore';
 import { usePremiumStore } from './store-premium/_usePremiumStore';
 import { useDevelopmentStore } from './store-development/_useDevelopmentStore';
+import { DEFAULT_PROGRESS_UPDATE_FREQUENCY, isProgressUpdateFrequency, type ProgressUpdateFrequency } from '@/constants/update-frequency.constants';
 
 /**
  * A single discoverability point for each domain-level Zustand store.
@@ -39,6 +40,7 @@ export interface AppStoreState {
 	soundEffectsVolume: number;
 	musicVolume: number;
 	brightness: number;
+	progressUpdateFrequencyHz: ProgressUpdateFrequency;
 	requireDailyCheckIn: boolean;
 	requireDailyCheckOut: boolean;
 	reverseItemLayout: boolean;
@@ -59,6 +61,7 @@ export interface AppStoreState {
 	setSoundEffectsVolume: (volume: number) => void;
 	setMusicVolume: (volume: number) => void;
 	setBrightness: (brightness: number) => void;
+	setProgressUpdateFrequency: (frequency: ProgressUpdateFrequency) => void;
 	setRequireDailyCheckIn: (required: boolean) => void;
 	setRequireDailyCheckOut: (required: boolean) => void;
 	setReverseItemLayout: (reversed: boolean) => void;
@@ -115,6 +118,7 @@ const createAppPreferencesSlice: AppSlice<
 	| 'soundEffectsVolume'
 	| 'musicVolume'
 	| 'brightness'
+	| 'progressUpdateFrequencyHz'
 	| 'requireDailyCheckIn'
 	| 'requireDailyCheckOut'
 	| 'reverseItemLayout'
@@ -135,6 +139,7 @@ const createAppPreferencesSlice: AppSlice<
 	| 'setSoundEffectsVolume'
 	| 'setMusicVolume'
 	| 'setBrightness'
+	| 'setProgressUpdateFrequency'
 	| 'setRequireDailyCheckIn'
 	| 'setRequireDailyCheckOut'
 	| 'setReverseItemLayout'
@@ -159,6 +164,7 @@ const createAppPreferencesSlice: AppSlice<
 	soundEffectsVolume: 0.8,
 	musicVolume: 0.5,
 	brightness: 1,
+	progressUpdateFrequencyHz: DEFAULT_PROGRESS_UPDATE_FREQUENCY,
 	requireDailyCheckIn: true,
 	requireDailyCheckOut: false,
 	reverseItemLayout: false,
@@ -179,6 +185,9 @@ const createAppPreferencesSlice: AppSlice<
 	setSoundEffectsVolume: soundEffectsVolume => set({ soundEffectsVolume: Math.max(0, Math.min(1, soundEffectsVolume)) }),
 	setMusicVolume: musicVolume => set({ musicVolume: Math.max(0, Math.min(1, musicVolume)) }),
 	setBrightness: brightness => set({ brightness: Math.max(0.5, Math.min(1.2, brightness)) }),
+	setProgressUpdateFrequency: progressUpdateFrequencyHz => {
+		if (isProgressUpdateFrequency(progressUpdateFrequencyHz)) set({ progressUpdateFrequencyHz });
+	},
 	setRequireDailyCheckIn: requireDailyCheckIn => set({ requireDailyCheckIn }),
 	setRequireDailyCheckOut: requireDailyCheckOut => set({ requireDailyCheckOut }),
 	setReverseItemLayout: reverseItemLayout => set({ reverseItemLayout }),
@@ -212,7 +221,7 @@ const createAppResetSlice: AppSlice<'resetEverything'> = set => ({
 		usePremiumStore.getState().reset();
 		useDevelopmentStore.getState().temporaryCheats.reset();
 		await AsyncStorage.multiRemove(storageKeys);
-		set({ version: 5, hasEntered: false, startedAt: undefined, theme: 'system', autoHarvest: false, soundEffectsVolume: 0.8, musicVolume: 0.5, brightness: 1, requireDailyCheckIn: true, requireDailyCheckOut: false, reverseItemLayout: false, secondaryPanelLayout: 'horizontal', showNewsBar: true, backgroundStyle: 'nexus', dragonCosmetic: 'classic', weatherEffects: { rain: false, tremors: false, brightness: false }, noSpritesMode: false, numberFormat: 'expanded-short', lastOpenedAt: new Date().toISOString(), seenGovernmentLogIds: [], pageUnlockNoticesInitialized: false, seenPageUnlockNoticeIds: [] });
+		set({ version: 5, hasEntered: false, startedAt: undefined, theme: 'system', autoHarvest: false, soundEffectsVolume: 0.8, musicVolume: 0.5, brightness: 1, progressUpdateFrequencyHz: DEFAULT_PROGRESS_UPDATE_FREQUENCY, requireDailyCheckIn: true, requireDailyCheckOut: false, reverseItemLayout: false, secondaryPanelLayout: 'horizontal', showNewsBar: true, backgroundStyle: 'nexus', dragonCosmetic: 'classic', weatherEffects: { rain: false, tremors: false, brightness: false }, noSpritesMode: false, numberFormat: 'expanded-short', lastOpenedAt: new Date().toISOString(), seenGovernmentLogIds: [], pageUnlockNoticesInitialized: false, seenPageUnlockNoticeIds: [] });
 	},
 });
 

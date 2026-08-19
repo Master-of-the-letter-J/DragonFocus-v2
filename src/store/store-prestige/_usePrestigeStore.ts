@@ -31,7 +31,11 @@ export const usePrestigeStore = create<PrestigeStoreState>()(
 					...stored,
 					selectedApocalypse: stored.selectedApocalypse === 'standard' ? 'sacrifice' : (stored.selectedApocalypse ?? current.selectedApocalypse),
 					completedApocalypses: [...new Set(['sacrifice' as ApocalypseType, ...(stored.completedApocalypses ?? [])])],
-					apocalypseLevels: { ...current.apocalypseLevels, ...(stored.apocalypseLevels ?? {}) },
+					apocalypseLevels: {
+						...current.apocalypseLevels,
+						...(stored.apocalypseLevels ?? {}),
+						sacrifice: Math.max(1, stored.apocalypseLevels?.sacrifice ?? current.apocalypseLevels.sacrifice),
+					},
 				};
 			},
 		},

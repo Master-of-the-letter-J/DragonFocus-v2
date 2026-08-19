@@ -1,4 +1,4 @@
-import { activeGoalMultiplierProduct, balancedXp, goalMultiplierUpgradeCost, goalMultiplierValue, multiplierLevelForXp } from '@/data/calculations/formula-goal-multipliers';
+import { balancedXp, goalMultiplierUpgradeCost, goalMultiplierValue, multiplierLevelForXp } from '@/data/calculations/formula-goal-multipliers';
 import { GOAL_MULTIPLIER_ARCHETYPES, type GoalMultiplierArchetype, type GoalMultiplierLevels, type GoalMultiplierUpgradeLevels, type GoalMultiplierXp } from '@/types/goal-multiplier.types';
 import { decimal } from '@/utils/decimal';
 import { scopeNestedSlice } from '../nested-slice';
@@ -48,7 +48,7 @@ export const createGoalMultiplierSlice: ProductionSlice<'goalMultiplierStore'> =
 		goalMultiplierStore: {
 			...initialState(),
 			recordXp: (archetype, amount) => {
-		if (!goalMultipliersAvailable() || !Number.isFinite(amount) || amount <= 0 || archetype === 'balanced') return;
+		if (!Number.isFinite(amount) || amount <= 0 || archetype === 'balanced') return;
 		setSlice(state => {
 			const xp = { ...state.xp, [archetype]: state.xp[archetype] + Math.floor(amount) };
 			xp.balanced = balancedXp(xp);
@@ -86,7 +86,7 @@ export const createGoalMultiplierSlice: ProductionSlice<'goalMultiplierStore'> =
 		const state = getSlice();
 		if (!goalMultipliersAvailable()) return 1;
 		const active = GOAL_MULTIPLIER_ARCHETYPES.filter(archetype => state.isUnlocked(archetype) && state.upgradeLevels[archetype] > 0);
-		return activeGoalMultiplierProduct(state.xp, state.upgradeLevels, active);
+		return active.reduce((product, archetype) => product * state.getDarkEnergyMultiplier(archetype), 1);
 	},
 	respecUpgrades: () => {
 		const state = getSlice();

@@ -8,14 +8,15 @@ import type { GameMode } from '@/types/world.types';
 import { useState } from 'react';
 import { Alert, Text, TextInput, View } from 'react-native';
 import { styles } from './options.styles';
+import { PROGRESS_UPDATE_FREQUENCIES } from '@/constants/update-frequency.constants';
 
 const MODES: readonly { id: GameMode; label: string; milestone: number; summary: string }[] = [
 	{ id: 'easy', label: 'Easy', milestone: 0, summary: 'Normal production, population, harvests, and Fury.' },
-	{ id: 'invincible', label: 'Invincible', milestone: 1, summary: '×½ Heart and Dark Energy harvests; Fury is paused.' },
+	{ id: 'invincible', label: 'Invincible', milestone: 1, summary: '×½ Heart and Goal Power XP harvests; Fury is paused.' },
 	{ id: 'lock-in', label: 'Lock-In', milestone: 2, summary: 'Production and population pause; rewards remain hidden; Fury is paused.' },
-	{ id: 'medium', label: 'Medium', milestone: 2, summary: '×2 Heart, Dark Energy harvests, Fury gain, and Fury cap.' },
-	{ id: 'hard', label: 'Hard', milestone: 3, summary: '×4 Heart and Dark Energy harvests; Fury rules tighten and surveys are required.' },
-	{ id: 'hard-plus', label: 'Hard+', milestone: 3, summary: '×6 Heart and Dark Energy harvests; only Hard+ and Lock-In remain selectable while the dragon lives.' },
+	{ id: 'medium', label: 'Medium', milestone: 2, summary: '×2 Heart, Goal Power XP harvests, Fury gain, and Fury cap.' },
+	{ id: 'hard', label: 'Hard', milestone: 3, summary: '×4 Heart and Goal Power XP harvests; Fury rules tighten and surveys are required.' },
+	{ id: 'hard-plus', label: 'Hard+', milestone: 3, summary: '×6 Heart and Goal Power XP harvests; only Hard+ and Lock-In remain selectable while the dragon lives.' },
 ];
 
 export function GeneralSettings() {
@@ -65,6 +66,15 @@ export function GeneralSettings() {
 				<ToggleRow label="Reverse icon order" detail="Reverses the orientation of production and world items." value={app.reverseItemLayout} onChange={app.setReverseItemLayout} />
 				<ToggleRow label="No Sprites Mode" detail="Uses a more minimal interface and turns on automatically for Lock-In." value={app.noSpritesMode} onChange={app.setNoSpritesMode} />
 				<ToggleRow label="News bar" detail="Shows rotating news and tips; later milestones unlock more entries." value={app.showNewsBar} onChange={app.setShowNewsBar} />
+			</Card>
+			<Card>
+				<SectionTitle title="Idle-game smoothness" detail={`Refresh visible progression up to ${app.progressUpdateFrequencyHz.toLocaleString()}× per second. Real elapsed time still determines Heart charge, production, population, Fury, effects, and timers, so this never changes ticks or rewards.`} />
+				<View style={uiStyles.wrap}>
+					{PROGRESS_UPDATE_FREQUENCIES.map(frequency => (
+						<Chip key={frequency} label={`${frequency.toLocaleString()}×/sec${frequency === 10 ? ' · Recommended' : ''}`} selected={app.progressUpdateFrequencyHz === frequency} onPress={() => app.setProgressUpdateFrequency(frequency)} />
+					))}
+				</View>
+				<Text style={uiStyles.muted}>The 100× and 1,000× modes are frame-batched: calculations retain real-time precision, but React only receives one update per rendered frame to prevent lag and battery drain.</Text>
 			</Card>
 			<Card>
 				<SectionTitle title="Secondary panel" detail="Use the top-right button to switch information panels. Choose a horizontal strip or a neat multi-column layout." />

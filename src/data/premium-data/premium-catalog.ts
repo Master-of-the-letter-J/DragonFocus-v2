@@ -16,7 +16,7 @@ export const DRAGON_PACT_PRODUCTS: readonly DragonPactProductDefinition[] = [
 
 export const DRAGON_PACT_BENEFITS = {
 	goalLimit: Number.POSITIVE_INFINITY,
-	challengeLimitPerType: 15,
+	challengeGoalLimit: 25,
 	crimsonHeartMultiplier: 2,
 	harvestXpMultiplier: 2,
 	harvestDarkEnergyMultiplier: 2,

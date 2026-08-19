@@ -94,7 +94,7 @@ export const createEnergyOnlineSlice: OnlineProgressSlice<'calculateProducerEner
 			const base = producer.id === 'void-cortex' || producer.id === 'deity-powered-fuser' ? decimal(producer.baseProduction).times(statistic) : decimal(producer.baseProduction).plus(special);
 			const quantityMultiplier = calculateMilestoneGrowth(owned, [
 				{ start: 25, repeatEvery: 25, multiplier: 2 },
-				{ start: 500, repeatEvery: 500, multiplier: 10 },
+				{ start: 500, repeatEvery: 500, multiplier: 5 },
 			]);
 			return total.plus(
 				base
@@ -123,8 +123,8 @@ export const createEnergyOnlineSlice: OnlineProgressSlice<'calculateProducerEner
 			const owned = production.levels[amplifier.id] ?? 0;
 			if (!owned) return total;
 			const milestoneMultiplier = calculateMilestoneGrowth(owned, [
-				{ start: 100, repeatEvery: 25, multiplier: 4 },
-				{ start: 500, repeatEvery: 500, multiplier: 100 },
+				{ start: 100, repeatEvery: 25, multiplier: 3 },
+				{ start: 500, repeatEvery: 500, multiplier: 50 },
 			]);
 			return total.plus(decimal(amplifier.amplification).times(owned).times(milestoneMultiplier).times(production.forgingStore.getGildMultiplier(amplifier.id, 'amplifier')).times(amplifierEfficiency));
 		}, decimal(1));

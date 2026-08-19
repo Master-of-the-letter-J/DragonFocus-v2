@@ -17,30 +17,31 @@ const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
 const BACKGROUNDS = { nexus: colors.canvas, ember: '#1C0C0D', void: '#090713' } as const;
 
 const menuItems = [
-	['Check-in survey', '/check-in-survey'],
-	['Check-out survey', '/check-out-survey'],
-	['View goals', '/(_tabs)/earth?tab=active'],
-	['View account', '/(_tabs)/archives?tab=pact'],
-	['Game modes', '/(_tabs)/options?tab=general'],
-	['Tutorial', '/tutorial'],
-	['Snackbox market', '/(_tabs)/archives?tab=market'],
+	{ label: 'Check-in survey', href: '/check-in-survey', milestone: 0.5 },
+	{ label: 'Check-out survey', href: '/check-out-survey', milestone: 0.5 },
+	{ label: 'View goals', href: '/(_tabs)/earth?tab=active', milestone: 0.5 },
+	{ label: 'View account', href: '/(_tabs)/archives?tab=pact', milestone: 2 },
+	{ label: 'Game modes', href: '/(_tabs)/options?tab=general', milestone: 0 },
+	{ label: 'Tutorial', href: '/tutorial', milestone: 0 },
+	{ label: 'Snackbox market', href: '/(_tabs)/archives?tab=market', milestone: 3 },
 ] as const;
 
-const panelChoices: { id: PanelMode; label: string }[] = [
-	{ id: 'world', label: 'World Panel' },
-	{ id: 'population', label: 'Population Panel' },
-	{ id: 'goals', label: 'Goals Panel' },
-	{ id: 'resources', label: 'Production Panel' },
-	{ id: 'spells', label: 'Spell Panel' },
+const panelChoices: { id: PanelMode; label: string; milestone: number }[] = [
+	{ id: 'world', label: 'World Panel', milestone: 0 },
+	{ id: 'population', label: 'Population Panel', milestone: 0.25 },
+	{ id: 'resources', label: 'Production Panel', milestone: 0.25 },
+	{ id: 'goals', label: 'Goals Panel', milestone: 0.5 },
+	{ id: 'spells', label: 'Spell Panel', milestone: 3 },
 ];
 
-export function DragonAppScreen({ title, panel, effects = false, children, scrollProps }: PropsWithChildren<{ title: string; panel: PanelMode; effects?: boolean; scrollProps?: ScrollViewProps }>) {
+export function DragonAppScreen({ title, panel, children, scrollProps }: PropsWithChildren<{ title: string; panel: PanelMode; scrollProps?: ScrollViewProps }>) {
 	const totalEnergy = useWorldStore(state => state.resourceStore.totalAllTime.energy);
 	const backgroundStyle = useAppStore(state => state.backgroundStyle);
 	const brightness = useAppStore(state => state.brightness);
 	const weatherEffects = useAppStore(state => state.weatherEffects);
 	const showNewsBar = useAppStore(state => state.showNewsBar);
-	const spellsUnlocked = milestoneForEnergy(totalEnergy) >= 3;
+	const milestone = milestoneForEnergy(totalEnergy);
+	const spellsUnlocked = milestone >= 3;
 	const tremor = useSharedValue(0);
 	const brightnessPulse = useSharedValue(0);
 	useEffect(() => {
@@ -87,13 +88,13 @@ export function DragonAppScreen({ title, panel, effects = false, children, scrol
 				contentContainerStyle={[styles.scrollContent, scrollProps?.contentContainerStyle]}>
 				<SecondaryPanel mode={panelMode} />
 				{showNewsBar ? <NewsBar milestone={milestoneForEnergy(totalEnergy)} /> : null}
-				{spellsUnlocked || effects ? <EffectsPanel /> : null}
+				{spellsUnlocked ? <EffectsPanel /> : null}
 				<Animated.View entering={FadeInDown.duration(320)} style={[styles.content, styles.contentInner]}>
 					{children}
 				</Animated.View>
 			</ScrollView>
 			<MenuModal visible={menuOpen} title="Command menu" onClose={() => setMenuOpen(false)}>
-				{menuItems.map(([label, href]) => (
+				{menuItems.filter(item => milestone >= item.milestone).map(({ label, href }) => (
 					<Pressable
 						key={label}
 						style={styles.menuRow}
@@ -107,7 +108,7 @@ export function DragonAppScreen({ title, panel, effects = false, children, scrol
 				))}
 			</MenuModal>
 			<MenuModal visible={panelOpen} title="Information panel" onClose={() => setPanelOpen(false)}>
-				{panelChoices.map(choice => (
+				{panelChoices.filter(choice => milestone >= choice.milestone).map(choice => (
 					<Pressable
 						key={choice.id}
 						style={[styles.menuRow, choice.id === panelMode && styles.menuRowSelected]}

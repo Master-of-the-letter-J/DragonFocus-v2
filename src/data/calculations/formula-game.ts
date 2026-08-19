@@ -11,6 +11,12 @@ export interface PopulationProgressionOptions {
 	hostile?: boolean;
 }
 
+/** Smoothly scales the base Earth click from 1 million to the 1-billion cap over Gaia's nine levels. */
+export const earthClickPopulationGain = (gaiaLevel: number) => {
+	const safeLevel = Number.isFinite(gaiaLevel) ? Math.max(0, Math.min(9, Math.floor(gaiaLevel))) : 0;
+	return decimalMin(decimal(10).pow(6 + safeLevel / 3), 1_000_000_000);
+};
+
 /** Returns the clamped per-tick rate from the Pt. 3.5 population curve. */
 export const populationGrowthRate = (population: DecimalSource, multiplier: DecimalSource, level = 1, hostile = false) => {
 	const rules = WORLD_CONSTANTS.population;
